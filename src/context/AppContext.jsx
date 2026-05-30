@@ -3,62 +3,92 @@ import { supabase } from '../lib/supabase'
 
 const AppContext = createContext(null)
 
+const SUPER_ADMIN_CODE = import.meta.env.VITE_ADMIN_PASSWORD || 'usa2026admin'
+
 export function AppProvider({ children }) {
-  const [perfil, setPerfil] = useState(() => localStorage.getItem('perfil') || 'todos')
+  const [family, setFamily] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('family') || 'null') } catch { return null }
+  })
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('is_admin') === '1')
+  const [families, setFamilies] = useState([])
   const [people, setPeople] = useState([])
   const [groups, setGroups] = useState({})
   const [stages, setStages] = useState([])
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const cambiarPerfil = (id) => {
-    setPerfil(id)
-    localStorage.setItem('perfil', id)
+  const enterFamily = (fam, admin = false) => {
+    setFamily(fam)
+    localStorage.setItem('family', JSON.stringify(fam))
+    if (admin) {
+      setIsAdmin(true)
+      localStorage.setItem('is_admin', '1')
+    }
   }
 
-  const cargarDatos = useCallback(async () => {
+  const exitFamily = () => {
+    setFamily(null)
+    setIsAdmin(false)
+    localStorage.removeItem('family')
+    localStorage.removeItem('is_admin')
+  }
+
+  const reload = useCallback(async () => {
     setLoading(true)
-    const [{ data: p }, { data: g }, { data: s }, { data: e }] = await Promise.all([
+    const [{ data: fams }, { data: p }, { data: g }, { data: s }, { data: e }] = await Promise.all([
+      supabase.from('families').select('*'),
       supabase.from('people').select('*').order('sort_order'),
       supabase.from('groups').select('*'),
       supabase.from('stages').select('*').order('sort_order'),
       supabase.from('events').select('*').order('date').order('time')
     ])
+    setFamilies(fams || [])
     setPeople(p || [])
-    const groupMap = {}
-    ;(g || []).forEach(gr => { groupMap[gr.id] = gr })
-    setGroups(groupMap)
+    const gm = {}
+    ;(g || []).forEach(gr => { gm[gr.id] = gr })
+    setGroups(gm)
     setStages(s || [])
     setEvents(e || [])
     setLoading(false)
   }, [])
 
-  useEffect(() => { cargarDatos() }, [cargarDatos])
+  useEffect(() => { reload() }, [reload])
 
-  // Filtra items según el perfil seleccionado
-  // Cada item tiene `people`: array de person IDs o group IDs o "todos"
-  const filtrarPorPerfil = useCallback((items) => {
-    if (perfil === 'todos') return items
+  // Filtra eventos: muestra los de la familia actual + los compartidos (family_id null)
+  const filtrarEventos = useCallback((items) => {
     return items.filter(item => {
-      const tags = item.people || []
-      if (tags.includes('todos') || tags.length === 0) return true
-      if (tags.includes(perfil)) return true
-      // Verificar si el perfil está en algún grupo del item
-      return tags.some(tag => {
-        const grupo = groups[tag]
-        return grupo && grupo.member_ids.includes(perfil)
-      })
+      if (!item.family_id) return true  // compartido
+      if (isAdmin) return true          // admin ve todo
+      return item.family_id === family?.id
     })
-  }, [perfil, groups])
+  }, [family, isAdmin])
 
   const getPersona = useCallback((id) => people.find(p => p.id === id), [people])
 
+  const loginAdmin = (code) => {
+    if (code === SUPER_ADMIN_CODE) {
+      const adminFam = { id: 'moledo', name: 'Familia Moledo', emoji: '🦋', color: '#2563EB' }
+      enterFamily(adminFam, true)
+      return true
+    }
+    return false
+  }
+
+  const loginFamily = (fam, code) => {
+    if (code === fam.access_code) {
+      enterFamily(fam, false)
+      return true
+    }
+    return false
+  }
+
   return (
     <AppContext.Provider value={{
-      perfil, cambiarPerfil,
-      people, groups, stages, events,
-      loading, cargarDatos,
-      filtrarPorPerfil, getPersona
+      family, isAdmin,
+      families, people, groups, stages, events,
+      loading, reload,
+      filtrarEventos, getPersona,
+      enterFamily, exitFamily, loginAdmin, loginFamily,
     }}>
       {children}
     </AppContext.Provider>

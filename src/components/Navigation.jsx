@@ -1,24 +1,24 @@
 import { NavLink } from 'react-router-dom'
 
-const items = [
-  { to: '/',          label: 'Inicio',      icon: '🏠' },
-  { to: '/itinerario',label: 'Itinerario',  icon: '📅' },
-  { to: '/parques',   label: 'Parques',     icon: '🎢' },
-  { to: '/documentos',label: 'Docs',        icon: '📄' },
-  { to: '/mas',       label: 'Más',         icon: '☰' },
+const NAV = [
+  { to: '/',           icon: '🏠', label: 'Inicio' },
+  { to: '/itinerario', icon: '📅', label: 'Viaje' },
+  { to: '/parques',    icon: '🎢', label: 'Parques' },
+  { to: '/documentos', icon: '📄', label: 'Docs' },
+  { to: '/mas',        icon: '⋯',  label: 'Más' },
 ]
 
 export default function Navigation() {
   return (
     <nav className="bottom-nav">
-      {items.map(({ to, label, icon }) => (
+      {NAV.map(({ to, icon, label }) => (
         <NavLink
           key={to}
           to={to}
           end={to === '/'}
           className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
         >
-          <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>{icon}</span>
+          <span className="nav-icon">{icon}</span>
           <span>{label}</span>
         </NavLink>
       ))}
