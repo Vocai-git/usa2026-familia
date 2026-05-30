@@ -13,23 +13,40 @@ const DOC_TYPES = {
   other: { label: 'Otro', icon: '📄' },
 }
 
-function DocCard({ doc, onView }) {
+function DocCard({ doc, onView, onQr }) {
   const { people } = useApp()
   const type = DOC_TYPES[doc.type] || DOC_TYPES.other
   const owner = people.find(p => p.id === doc.owner_id)
 
+  const isQr = ['boarding_pass', 'ticket', 'voucher', 'esta'].includes(doc.type)
+
   return (
-    <div className="doc-card" onClick={() => doc.storage_path && onView(doc)}>
+    <div className="doc-card" style={isQr ? { borderLeft: '3px solid var(--accent)' } : {}}>
       <span className="doc-icon">{type.icon}</span>
       <div style={{ flex: 1 }}>
         <div className="doc-name">{doc.name}</div>
-        <div className="doc-type">
-          {type.label}{owner ? ` · ${owner.name}` : ''}
-        </div>
+        <div className="doc-type">{type.label}{owner ? ` · ${owner.name}` : ''}</div>
         {doc.notes && <div className="text-sm text-muted" style={{ marginTop: 4 }}>{doc.notes}</div>}
       </div>
       {doc.storage_path && (
-        <span style={{ color: 'var(--accent)', fontSize: '1.2rem' }}>👁</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onView(doc)}
+            style={{ fontSize: '0.72rem', padding: '5px 10px' }}
+          >
+            👁 Ver
+          </button>
+          {isQr && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={(e) => { e.stopPropagation(); onView(doc, true) }}
+              style={{ fontSize: '0.72rem', padding: '5px 10px', background: '#18181B' }}
+            >
+              📲 QR
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -104,6 +121,9 @@ export default function Documentos() {
     setViewDoc({ ...doc, url: data.publicUrl })
   }
 
+  const isQrType = (type) => ['boarding_pass', 'ticket', 'voucher', 'esta'].includes(type)
+  const [qrMode, setQrMode] = useState(false)
+
   const filteredDocs = filtrarPorPerfil(docs.map(d => ({ ...d, people: d.owner_id ? [d.owner_id] : ['todos'] })))
   const filteredCodes = filtrarPorPerfil(codes)
 
@@ -132,19 +152,45 @@ export default function Documentos() {
       {tab === 'docs' && (
         filteredDocs.length === 0
           ? <div className="empty-state"><div className="icon">📄</div><p>Sin documentos cargados.</p><p className="text-sm" style={{ marginTop: 8 }}>Subí documentos desde el panel admin.</p></div>
-          : filteredDocs.map(doc => <DocCard key={doc.id} doc={doc} onView={handleView} />)
+          : filteredDocs.map(doc => <DocCard key={doc.id} doc={doc} onView={(d, qr) => { handleView(d); if (qr) setQrMode(true) }} />)
       )}
 
       {tab === 'codes' && (
         <CodesSection codes={filteredCodes} onCopy={handleCopy} />
       )}
 
+      {/* Modo QR — pantalla completa para aeropuerto */}
+      {viewDoc && qrMode && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            background: '#000',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setQrMode(false)}
+        >
+          <div style={{ color: '#fff', fontSize: '0.72rem', opacity: 0.5, marginBottom: 12, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            {viewDoc.name} · Tocá para cerrar
+          </div>
+          <img
+            src={viewDoc.url}
+            alt={viewDoc.name}
+            style={{ maxWidth: '95vw', maxHeight: '80dvh', borderRadius: 12, objectFit: 'contain' }}
+            onClick={e => e.stopPropagation()}
+          />
+          <div style={{ color: '#fff', fontSize: '0.68rem', opacity: 0.35, marginTop: 12 }}>
+            📲 Mostrá esta pantalla para escanear en el aeropuerto
+          </div>
+        </div>
+      )}
+
       {/* Modal visor de documento */}
-      {viewDoc && (
+      {viewDoc && !qrMode && (
         <div className="modal-overlay" onClick={() => setViewDoc(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-            <div className="modal-handle" />
-            <div className="modal-title">{viewDoc.name}</div>
+            <div className="sheet-handle" />
+            <div className="sheet-title">{viewDoc.name}</div>
             {viewDoc.url && (
               viewDoc.storage_path?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
                 ? <img src={viewDoc.url} alt={viewDoc.name} style={{ width: '100%', borderRadius: 10 }} />
@@ -152,7 +198,16 @@ export default function Documentos() {
                     📂 Abrir documento
                   </a>
             )}
-            <button className="btn btn-secondary btn-block" style={{ marginTop: 12 }} onClick={() => setViewDoc(null)}>
+            {isQrType(viewDoc.type) && viewDoc.storage_path?.match(/\.(jpg|jpeg|png|gif|webp)$/i) && (
+              <button
+                className="btn btn-primary btn-block"
+                style={{ marginTop: 12, background: '#18181B' }}
+                onClick={() => setQrMode(true)}
+              >
+                📲 Mostrar QR para escanear
+              </button>
+            )}
+            <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={() => setViewDoc(null)}>
               Cerrar
             </button>
           </div>
