@@ -9,8 +9,10 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
-    "@rolldown/binding-darwin-arm64": "^1.0.3",
     "@supabase/supabase-js": "^2.106.2",
     "leaflet": "^1.9.4",
     "react": "^19.2.6",
