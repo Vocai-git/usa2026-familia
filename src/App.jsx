@@ -16,7 +16,7 @@ import './styles/main.css'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/usa2026-familia">
       <AppProvider>
         <div id="root">
           <header className="app-header">
