@@ -63,7 +63,7 @@ function AppShell() {
 
 export default function App() {
   return (
-    <BrowserRouter basename="/usa2026-familia">
+    <BrowserRouter>
       <Routes>
         <Route
           path="/admin/*"
