@@ -22,7 +22,7 @@ self.addEventListener('notificationclick', event => {
   event.notification.close()
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
-      const match = cs.find(c => c.url.includes('usa2026-familia'))
+      const match = cs.find(c => c.url.includes('usa2026-app-production.up.railway.app'))
       if (match) { match.focus(); return }
       clients.openWindow(event.notification.data?.url || '/parques')
     })

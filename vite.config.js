@@ -20,8 +20,8 @@ export default defineConfig({
         background_color: '#FDF6EC',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/usa2026-familia/',
-        scope: '/usa2026-familia/',
+        start_url: '/',
+        scope: '/',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
