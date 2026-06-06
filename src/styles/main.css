@@ -70,9 +70,9 @@ input, textarea, select { font: inherit; }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
 
-/* Solo mobile */
+/* Solo mobile — no aplica al panel admin */
 @media (min-width: 600px) {
-  body::before {
+  body:not(.admin-mode)::before {
     content: '📱 Esta app es exclusiva para móvil.\AUsá tu celular para acceder.';
     white-space: pre;
     position: fixed; inset: 0; z-index: 9999;

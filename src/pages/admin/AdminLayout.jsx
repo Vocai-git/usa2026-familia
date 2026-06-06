@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAdmin } from '../../context/AdminContext'
 import AdminSidebar from '../../components/AdminSidebar'
@@ -7,6 +8,11 @@ import '../../styles/admin-extra.css'
 
 export default function AdminLayout() {
   const { session } = useAdmin()
+
+  useEffect(() => {
+    document.body.classList.add('admin-mode')
+    return () => document.body.classList.remove('admin-mode')
+  }, [])
   if (!session) return <Login />
   return (
     <div className="layout">
