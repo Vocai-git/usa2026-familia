@@ -1,23 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const PARKS = [
-  { id: 334, name: 'Epic Universe',           emoji: '🌌', company: 'Universal' },
-  { id: 65,  name: 'Universal Studios FL',   emoji: '🎬', company: 'Universal' },
-  { id: 64,  name: 'Islands of Adventure',   emoji: '🏝', company: 'Universal' },
-  { id: 6,   name: 'Magic Kingdom',          emoji: '🏰', company: 'Disney' },
-  { id: 5,   name: 'EPCOT',                  emoji: '🌍', company: 'Disney' },
-  { id: 7,   name: 'Hollywood Studios',      emoji: '🎬', company: 'Disney' },
-  { id: 8,   name: 'Animal Kingdom',         emoji: '🦁', company: 'Disney' },
+  { id: 334, name: 'Epic Universe',         emoji: '🌌', company: 'Universal' },
+  { id: 65,  name: 'Universal Studios FL',  emoji: '🎬', company: 'Universal' },
+  { id: 64,  name: 'Islands of Adventure',  emoji: '🏝', company: 'Universal' },
 ]
 
-const DEEP_LINKS = {
-  Universal: 'https://www.universalorlando.com/web/en/us/plan-your-visit/park-maps',
-  Disney: 'https://disneyworld.disney.go.com/entertainment/',
-}
+// Volcano Bay usa Virtual Line de Universal, no tiene API de tiempos
+const VOLCANO_BAY_URL = 'https://www.universalorlando.com/web/en/us/plan-your-visit/volcano-bay/virtual-line'
 
 const APP_LINKS = {
-  Universal: { ios: 'universalorlando://', android: 'universalorlando://', web: 'https://www.universalorlando.com' },
-  Disney: { ios: 'wdw://', android: 'wdw://', web: 'https://disneyworld.disney.go.com' },
+  Universal: { web: 'https://www.universalorlando.com' },
 }
 
 function waitClass(mins) {
@@ -42,6 +35,35 @@ function Summary({ rides }) {
   )
 }
 
+// ─── Push subscription helpers ────────────────────────────────────────────────
+async function getPushSubscription() {
+  const sw = await navigator.serviceWorker.ready
+  return sw.pushManager.getSubscription()
+}
+
+async function subscribeToPush() {
+  try {
+    const r = await fetch('/api/push/vapid-key')
+    const { publicKey } = await r.json()
+    const sw = await navigator.serviceWorker.ready
+    const sub = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: publicKey
+    })
+    return sub
+  } catch { return null }
+}
+
+async function syncAlarmsToServer(alarms) {
+  const sub = await getPushSubscription()
+  if (!sub) return
+  fetch('/api/push/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint: sub.endpoint, alarms })
+  }).catch(() => {})
+}
+
 export default function Parques() {
   const [selectedPark, setSelectedPark] = useState(PARKS[0])
   const [rides, setRides] = useState([])
@@ -53,7 +75,14 @@ export default function Parques() {
   const [alarms, setAlarms] = useState(() => JSON.parse(localStorage.getItem('park_alarms') || '{}'))
   const [addAlarm, setAddAlarm] = useState(null)
   const [alarmThreshold, setAlarmThreshold] = useState(20)
+  const [pushEnabled, setPushEnabled] = useState(false)
   const intervalRef = useRef(null)
+
+  // Detectar si ya hay suscripción push activa
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    getPushSubscription().then(sub => setPushEnabled(!!sub))
+  }, [])
 
   const fetchWaitTimes = useCallback(async (park) => {
     setLoading(true)
@@ -77,7 +106,7 @@ export default function Parques() {
 
   useEffect(() => {
     fetchWaitTimes(selectedPark)
-    intervalRef.current = setInterval(() => fetchWaitTimes(selectedPark), 5 * 60 * 1000)
+    intervalRef.current = setInterval(() => fetchWaitTimes(selectedPark), 30 * 1000)
     return () => clearInterval(intervalRef.current)
   }, [selectedPark, fetchWaitTimes])
 
@@ -104,13 +133,33 @@ export default function Parques() {
     setAlarms(savedAlarms)
   }, [rides, selectedPark])
 
-  const saveAlarm = (ride) => {
+  const saveAlarm = async (ride) => {
     const key = `${selectedPark.id}_${ride.id}`
     const newAlarms = { ...alarms, [key]: { rideId: ride.id, rideName: ride.name, parkId: selectedPark.id, threshold: alarmThreshold, active: true, fired: null } }
     localStorage.setItem('park_alarms', JSON.stringify(newAlarms))
     setAlarms(newAlarms)
     setAddAlarm(null)
-    if (Notification.permission === 'default') Notification.requestPermission()
+
+    // Activar push si no está activo
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      const permission = await Notification.requestPermission()
+      if (permission === 'granted') {
+        let sub = await getPushSubscription()
+        if (!sub) {
+          sub = await subscribeToPush()
+          if (sub) {
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription: sub, alarms: newAlarms })
+            })
+            setPushEnabled(true)
+          }
+        } else {
+          syncAlarmsToServer(newAlarms)
+        }
+      }
+    }
   }
 
   const removeAlarm = (ride) => {
@@ -119,9 +168,22 @@ export default function Parques() {
     delete newAlarms[key]
     localStorage.setItem('park_alarms', JSON.stringify(newAlarms))
     setAlarms(newAlarms)
+    syncAlarmsToServer(newAlarms)
   }
 
-  const requestNotifications = () => Notification.requestPermission()
+  const enablePush = async () => {
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return
+    const sub = await subscribeToPush()
+    if (sub) {
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub, alarms })
+      })
+      setPushEnabled(true)
+    }
+  }
 
   let displayRides = [...rides]
   if (hideClosed) displayRides = displayRides.filter(r => r.is_open)
@@ -134,14 +196,60 @@ export default function Parques() {
     <div className="page">
       <h2 className="page-title">🎢 Parques en vivo</h2>
 
-      {/* Notificaciones */}
-      {Notification.permission === 'default' && (
+      {/* Push notifications */}
+      {!pushEnabled && Notification.permission !== 'denied' && (
         <div className="card" style={{ borderLeft: '4px solid var(--yellow)', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>⚡ Activá las notificaciones</div>
-          <div className="text-sm text-muted" style={{ marginBottom: 10 }}>Para recibir alertas cuando baje el tiempo de espera.</div>
-          <button className="btn btn-primary btn-sm" onClick={requestNotifications}>Activar</button>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>🔔 Notificaciones con la app cerrada</div>
+          <div className="text-sm text-muted" style={{ marginBottom: 10 }}>Avisamos cuando baje la fila aunque tengas el teléfono guardado.</div>
+          <button className="btn btn-primary btn-sm" onClick={enablePush}>Activar notificaciones</button>
         </div>
       )}
+      {pushEnabled && (
+        <div className="card" style={{ borderLeft: '4px solid var(--green)', marginBottom: 16, padding: '10px 16px' }}>
+          <div className="text-sm" style={{ fontWeight: 700 }}>✅ Notificaciones activas — funcionan aunque cierres la app</div>
+        </div>
+      )}
+
+      {/* Juegos en seguimiento */}
+      {alarmCount > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid var(--accent)', marginBottom: 16, padding: '12px 16px' }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>🔔 En seguimiento ({alarmCount})</div>
+          {Object.entries(alarms).filter(([, a]) => a.active).map(([key, a]) => {
+            const parkName = PARKS.find(p => p.id === a.parkId)?.name || ''
+            const liveRide = rides.find(r => r.id === a.rideId)
+            return (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: '0.82rem', flex: 1 }}>
+                  <strong>{a.rideName}</strong>
+                  <span className="text-muted"> · {parkName}</span>
+                </span>
+                {liveRide && (
+                  <span className={`wait-time ${liveRide.is_open ? waitClass(liveRide.wait_time) : 'wait-closed'}`} style={{ fontSize: '0.8rem', padding: '2px 8px' }}>
+                    {liveRide.is_open ? (liveRide.wait_time != null ? `${liveRide.wait_time}'` : '—') : 'Cerrada'}
+                  </span>
+                )}
+                <span className="text-muted text-sm">aviso &lt;{a.threshold}min</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Volcano Bay — Virtual Line */}
+      <a
+        href={VOLCANO_BAY_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="card"
+        style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, textDecoration: 'none', borderLeft: '4px solid #0EA5E9' }}
+      >
+        <span style={{ fontSize: '1.6rem' }}>🌋</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>Volcano Bay</div>
+          <div className="text-sm text-muted">Usa Virtual Line — tocá para abrir el sistema de colas de Universal</div>
+        </div>
+        <span style={{ color: '#0EA5E9', fontWeight: 700 }}>→</span>
+      </a>
 
       {/* Selector de parque */}
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 16, scrollbarWidth: 'none' }}>
@@ -179,7 +287,7 @@ export default function Parques() {
       {/* Update time + deep link */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <span className="text-sm text-muted">
-          {lastUpdate ? `Actualizado: ${lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Cargando...'}
+          {lastUpdate ? `Actualizado: ${lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Cargando...'}
         </span>
         <a
           href={APP_LINKS[selectedPark.company]?.web}

@@ -54,11 +54,20 @@ export function AppProvider({ children }) {
 
   useEffect(() => { reload() }, [reload])
 
-  // Filtra eventos: muestra los de la familia actual + los compartidos (family_id null)
+  // Filtra por family_id: muestra los de la familia actual + los compartidos (family_id null)
   const filtrarEventos = useCallback((items) => {
     return items.filter(item => {
-      if (!item.family_id) return true  // compartido
-      if (isAdmin) return true          // admin ve todo
+      if (!item.family_id) return true
+      if (isAdmin) return true
+      return item.family_id === family?.id
+    })
+  }, [family, isAdmin])
+
+  // Alias usado en Documentos y Códigos (filtra por people[] o family_id)
+  const filtrarPorPerfil = useCallback((items) => {
+    return items.filter(item => {
+      if (!item.family_id) return true
+      if (isAdmin) return true
       return item.family_id === family?.id
     })
   }, [family, isAdmin])
@@ -87,7 +96,7 @@ export function AppProvider({ children }) {
       family, isAdmin,
       families, people, groups, stages, events,
       loading, reload,
-      filtrarEventos, getPersona,
+      filtrarEventos, filtrarPorPerfil, getPersona,
       enterFamily, exitFamily, loginAdmin, loginFamily,
     }}>
       {children}
