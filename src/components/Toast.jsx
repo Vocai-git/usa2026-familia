@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react'
 
 let _showToast = null
 
+export const showToast = (msg) => _showToast?.(msg)
+
 export function useToast() {
   return { showToast: (msg) => _showToast?.(msg) }
 }
