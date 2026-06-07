@@ -13,8 +13,6 @@ const DOC_TYPES = {
   other:        { label: 'Otro',          icon: '📄' },
 }
 
-const EMPTY_FORM = { name: '', type: 'passport', owner_id: '', notes: '' }
-
 function DocCard({ doc, onView }) {
   const { people } = useApp()
   const type = DOC_TYPES[doc.type] || DOC_TYPES.other
@@ -87,102 +85,72 @@ function CodesSection({ codes, onCopy }) {
   )
 }
 
-function UploadModal({ family, people, onClose, onSaved }) {
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [file, setFile] = useState(null)
+function UploadModal({ family, onClose, onSaved }) {
+  const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
   const save = async () => {
-    if (!form.name || !file) { setError('Completá el nombre y seleccioná un archivo.'); return }
+    if (!files.length) { setError('Elegí al menos un archivo.'); return }
     setError(null)
     setUploading(true)
-    const ext = file.name.split('.').pop()
-    const path = `${form.type}/${family.id}/${Date.now()}.${ext}`
-    const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file, { upsert: false })
-    if (uploadErr) { setError('Error al subir el archivo. Intentá de nuevo.'); setUploading(false); return }
-    const { error: insertErr } = await supabase.from('documents').insert({
-      name: form.name,
-      type: form.type,
-      owner_id: form.owner_id || null,
-      notes: form.notes || null,
-      storage_path: path,
-      family_id: family.id,
-    })
+    const resultados = []
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      setStatus(`🤖 Leyendo ${i + 1}/${files.length}: ${file.name}...`)
+      const ext = file.name.split('.').pop()
+      const path = `entrada/${family.id}/${Date.now()}_${i}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file, { upsert: false })
+      if (uploadErr) { resultados.push(`❌ ${file.name}: no se pudo subir`); continue }
+      try {
+        const r = await fetch('/api/parse-document', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storagePath: path, familyId: family.id, fileName: file.name }),
+        })
+        const data = await r.json()
+        resultados.push(data.ok ? `✅ ${data.summary}` : `⚠️ ${file.name}: error al procesar`)
+      } catch {
+        resultados.push(`⚠️ ${file.name}: el servidor no respondió`)
+      }
+    }
     setUploading(false)
-    if (insertErr) { setError('Error al guardar el documento.'); return }
-    onSaved()
+    setStatus(null)
+    onSaved(resultados)
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={uploading ? undefined : onClose}>
       <div className="modal-sheet" onClick={e => e.stopPropagation()}>
         <div className="modal-handle" />
-        <div className="modal-title">📤 Subir documento</div>
+        <div className="modal-title">🤖 Subir documentos</div>
+        <p className="text-sm text-muted" style={{ marginTop: 4 }}>
+          Elegí tus archivos (pasaportes, vuelos, reservas, entradas…). La IA los lee y carga sola.
+        </p>
 
         <div style={{ marginTop: 16 }}>
-          <label className="form-label">Nombre del documento *</label>
-          <input
-            className="form-input"
-            placeholder="Ej: Pasaporte Agustín"
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            style={{ marginTop: 6 }}
-          />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
-          <div>
-            <label className="form-label">Tipo</label>
-            <select
-              className="form-select"
-              value={form.type}
-              onChange={e => set('type', e.target.value)}
-              style={{ marginTop: 6 }}
-            >
-              {Object.entries(DOC_TYPES).map(([k, v]) => (
-                <option key={k} value={k}>{v.icon} {v.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="form-label">¿De quién?</label>
-            <select
-              className="form-select"
-              value={form.owner_id}
-              onChange={e => set('owner_id', e.target.value)}
-              style={{ marginTop: 6 }}
-            >
-              <option value="">Grupo</option>
-              {people.map(p => (
-                <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 12 }}>
-          <label className="form-label">Archivo (foto o PDF) *</label>
+          <label className="form-label">Archivos (fotos, PDF o capturas)</label>
           <input
             type="file"
+            multiple
             accept="image/*,.pdf"
-            onChange={e => setFile(e.target.files[0])}
+            onChange={e => setFiles(Array.from(e.target.files))}
             style={{ width: '100%', marginTop: 6, fontSize: '0.85rem' }}
+            disabled={uploading}
           />
+          {files.length > 0 && (
+            <div className="text-sm text-muted" style={{ marginTop: 8 }}>
+              {files.length} archivo{files.length > 1 ? 's' : ''} seleccionado{files.length > 1 ? 's' : ''}
+            </div>
+          )}
         </div>
 
-        <div style={{ marginTop: 12 }}>
-          <label className="form-label">Notas (opcional)</label>
-          <input
-            className="form-input"
-            placeholder="Ej: Vence 2031"
-            value={form.notes}
-            onChange={e => set('notes', e.target.value)}
-            style={{ marginTop: 6 }}
-          />
-        </div>
+        {status && (
+          <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-soft, #f4f4f5)', borderRadius: 10, fontSize: '0.85rem' }}>
+            {status}
+          </div>
+        )}
 
         {error && (
           <div style={{ marginTop: 12, color: 'var(--red)', fontSize: '0.82rem' }}>⚠️ {error}</div>
@@ -192,12 +160,12 @@ function UploadModal({ family, people, onClose, onSaved }) {
           className="btn btn-primary btn-block"
           style={{ marginTop: 20 }}
           onClick={save}
-          disabled={uploading}
+          disabled={uploading || !files.length}
         >
-          {uploading ? '⏳ Subiendo...' : '⬆️ Subir documento'}
+          {uploading ? '🤖 Procesando con IA...' : '⬆️ Subir y leer con IA'}
         </button>
-        <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={onClose}>
-          Cancelar
+        <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={onClose} disabled={uploading}>
+          {uploading ? 'Esperá...' : 'Cancelar'}
         </button>
       </div>
     </div>
@@ -298,12 +266,12 @@ export default function Documentos() {
       {showUpload && (
         <UploadModal
           family={family}
-          people={people}
           onClose={() => setShowUpload(false)}
-          onSaved={() => {
+          onSaved={(resultados) => {
             setShowUpload(false)
             fetchData()
-            showToast('✅ Documento subido')
+            const okCount = (resultados || []).filter(r => r.startsWith('✅')).length
+            showToast(okCount > 0 ? `✅ IA cargó ${okCount} documento${okCount > 1 ? 's' : ''}` : '⚠️ Revisá los documentos')
           }}
         />
       )}
