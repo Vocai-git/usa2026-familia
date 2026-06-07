@@ -13,14 +13,20 @@ const DOC_TYPES = {
   other:        { label: 'Otro',          icon: '📄' },
 }
 
+// URL del documento servida por la propia app (mismo origen → cacheable offline)
+const docUrl = (p) => `/api/doc?path=${encodeURIComponent(p)}`
+const isImageFile = (p) => /\.(jpg|jpeg|png|gif|webp)$/i.test(p || '')
+// QR a pantalla completa solo para imágenes escaneables (boarding pass, entradas con QR)
+const canShowQr = (doc) => isImageFile(doc.storage_path) && ['boarding_pass', 'ticket'].includes(doc.type)
+
 function DocCard({ doc, onView }) {
   const { people } = useApp()
   const type = DOC_TYPES[doc.type] || DOC_TYPES.other
   const owner = people.find(p => p.id === doc.owner_id)
-  const isQr = ['boarding_pass', 'ticket', 'voucher', 'esta'].includes(doc.type)
+  const qr = canShowQr(doc)
 
   return (
-    <div className="doc-card" style={isQr ? { borderLeft: '3px solid var(--accent)' } : {}}>
+    <div className="doc-card" style={qr ? { borderLeft: '3px solid var(--accent)' } : {}}>
       <span className="doc-icon">{type.icon}</span>
       <div style={{ flex: 1 }}>
         <div className="doc-name">{doc.name}</div>
@@ -28,23 +34,24 @@ function DocCard({ doc, onView }) {
         {doc.notes && <div className="text-sm text-muted" style={{ marginTop: 4 }}>{doc.notes}</div>}
       </div>
       {doc.storage_path && (
-        isQr ? (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => onView(doc, true)}
-            style={{ fontSize: '0.72rem', padding: '5px 10px', background: '#18181B' }}
-          >
-            📲 QR
-          </button>
-        ) : (
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => onView(doc, false)}
             style={{ fontSize: '0.72rem', padding: '5px 10px' }}
           >
-            ⬇️ Ver
+            👁 Ver
           </button>
-        )
+          {qr && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => onView(doc, true)}
+              style={{ fontSize: '0.72rem', padding: '5px 10px', background: '#18181B' }}
+            >
+              📲 QR
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
@@ -200,20 +207,37 @@ export default function Documentos() {
 
   useEffect(() => { fetchData() }, [])
 
+  const filteredDocs  = filtrarPorPerfil(docs.map(d => ({ ...d, people: d.owner_id ? [d.owner_id] : [] })))
+  const filteredCodes = filtrarPorPerfil(codes)
+
+  // Precargar documentos para que estén disponibles sin conexión (el SW los cachea)
+  useEffect(() => {
+    if (!navigator.onLine) return
+    filteredDocs.forEach(d => { if (d.storage_path) fetch(docUrl(d.storage_path)).catch(() => {}) })
+  }, [docs])
+
   const handleCopy = (code, label) => {
     navigator.clipboard.writeText(code).then(() => showToast(`✅ ${label} copiado`))
   }
 
-  const handleView = async (doc, qr = false) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(doc.storage_path)
-    setViewDoc({ ...doc, url: data.publicUrl })
-    setQrMode(qr)
+  const closeViewer = () => {
+    if (viewDoc?.url?.startsWith('blob:')) URL.revokeObjectURL(viewDoc.url)
+    setViewDoc(null)
+    setQrMode(false)
   }
 
-  const isQrType = (type) => ['boarding_pass', 'ticket', 'voucher', 'esta'].includes(type)
-
-  const filteredDocs  = filtrarPorPerfil(docs.map(d => ({ ...d, people: d.owner_id ? [d.owner_id] : [] })))
-  const filteredCodes = filtrarPorPerfil(codes)
+  const handleView = async (doc, qr = false) => {
+    setQrMode(qr)
+    setViewDoc({ ...doc, loading: true })
+    try {
+      const r = await fetch(docUrl(doc.storage_path))
+      if (!r.ok) throw new Error()
+      const blob = await r.blob()
+      setViewDoc({ ...doc, url: URL.createObjectURL(blob), isImage: isImageFile(doc.storage_path), loading: false })
+    } catch {
+      setViewDoc({ ...doc, error: true, loading: false })
+    }
+  }
 
   if (loading || appLoading) {
     return <div className="loading"><div className="spinner" /><span>Cargando documentos...</span></div>
@@ -285,17 +309,19 @@ export default function Documentos() {
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
           }}
-          onClick={() => setQrMode(false)}
+          onClick={closeViewer}
         >
           <div style={{ color: '#fff', fontSize: '0.72rem', opacity: 0.5, marginBottom: 12, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             {viewDoc.name} · Tocá para cerrar
           </div>
-          <img
-            src={viewDoc.url}
-            alt={viewDoc.name}
-            style={{ maxWidth: '95vw', maxHeight: '80dvh', borderRadius: 12, objectFit: 'contain' }}
-            onClick={e => e.stopPropagation()}
-          />
+          {viewDoc.loading
+            ? <div className="spinner" />
+            : viewDoc.url && <img
+                src={viewDoc.url}
+                alt={viewDoc.name}
+                style={{ maxWidth: '95vw', maxHeight: '80dvh', borderRadius: 12, objectFit: 'contain' }}
+                onClick={e => e.stopPropagation()}
+              />}
           <div style={{ color: '#fff', fontSize: '0.68rem', opacity: 0.35, marginTop: 12 }}>
             📲 Mostrá esta pantalla para escanear en el aeropuerto
           </div>
@@ -304,18 +330,35 @@ export default function Documentos() {
 
       {/* Visor de documento */}
       {viewDoc && !qrMode && (
-        <div className="modal-overlay" onClick={() => setViewDoc(null)}>
-          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={closeViewer}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
             <div className="sheet-handle" />
             <div className="sheet-title">{viewDoc.name}</div>
-            {viewDoc.url && (
-              viewDoc.storage_path?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-                ? <img src={viewDoc.url} alt={viewDoc.name} style={{ width: '100%', borderRadius: 10 }} />
-                : <a href={viewDoc.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-block">
-                    📂 Abrir documento
-                  </a>
+
+            {viewDoc.loading && (
+              <div className="loading" style={{ padding: 32 }}><div className="spinner" /><span>Cargando documento...</span></div>
             )}
-            {isQrType(viewDoc.type) && viewDoc.storage_path?.match(/\.(jpg|jpeg|png|gif|webp)$/i) && (
+            {viewDoc.error && (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+                ⚠️ No se pudo cargar el documento.<br />
+                <span className="text-sm">Si no tenés conexión, ábrelo una vez con internet para guardarlo offline.</span>
+              </div>
+            )}
+            {!viewDoc.loading && !viewDoc.error && viewDoc.url && (
+              viewDoc.isImage
+                ? <img src={viewDoc.url} alt={viewDoc.name} style={{ width: '100%', borderRadius: 10 }} />
+                : <>
+                    <iframe
+                      title={viewDoc.name}
+                      src={viewDoc.url}
+                      style={{ width: '100%', height: '70dvh', border: 'none', borderRadius: 10, background: '#fff' }}
+                    />
+                    <a href={viewDoc.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}>
+                      📂 Abrir en pantalla completa
+                    </a>
+                  </>
+            )}
+            {!viewDoc.loading && !viewDoc.error && canShowQr(viewDoc) && (
               <button
                 className="btn btn-primary btn-block"
                 style={{ marginTop: 12, background: '#18181B' }}
@@ -324,7 +367,7 @@ export default function Documentos() {
                 📲 Mostrar QR para escanear
               </button>
             )}
-            <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={() => setViewDoc(null)}>
+            <button className="btn btn-secondary btn-block" style={{ marginTop: 8 }} onClick={closeViewer}>
               Cerrar
             </button>
           </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { infoAtraccion } from '../data/atracciones'
 
 const PARKS = [
   { id: 334, name: 'Epic Universe',         emoji: '🌌' },
@@ -20,7 +21,7 @@ function readParkAlarms() {
   try { return JSON.parse(localStorage.getItem('park_alarms') || '{}') } catch { return {} }
 }
 
-function BucketSection({ bucket, rides, isOpen, onToggle }) {
+function BucketSection({ bucket, rides, isOpen, onToggle, onSelect }) {
   const sorted = [...rides].sort((a, b) => a.wait_time - b.wait_time)
 
   return (
@@ -80,36 +81,46 @@ function BucketSection({ bucket, rides, isOpen, onToggle }) {
           borderRadius: '0 0 12px 12px',
           overflow: 'hidden',
         }}>
-          {sorted.map((ride, i) => (
-            <div
-              key={ride.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '10px 14px',
-                borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                background: 'var(--surface)',
-                gap: 10,
-                boxSizing: 'border-box',
-              }}
-            >
-              <div style={{ flex: 1, fontSize: '0.84rem', lineHeight: 1.3, minWidth: 0 }}>
-                {ride.name}
-              </div>
-              <div style={{
-                background: bucket.color,
-                color: '#fff',
-                borderRadius: 20,
-                padding: '3px 10px',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-              }}>
-                {ride.wait_time} min
-              </div>
-            </div>
-          ))}
+          {sorted.map((ride, i) => {
+            const info = infoAtraccion(ride.name)
+            return (
+              <button
+                key={ride.id}
+                onClick={() => onSelect({ ...ride, info })}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                  borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
+                  background: 'var(--surface)',
+                  gap: 10,
+                  boxSizing: 'border-box',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{info.emoji}</span>
+                <div style={{ flex: 1, fontSize: '0.84rem', lineHeight: 1.3, minWidth: 0 }}>
+                  {ride.name}
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{info.tipo} · ver info ›</div>
+                </div>
+                <div style={{
+                  background: bucket.color,
+                  color: '#fff',
+                  borderRadius: 20,
+                  padding: '3px 10px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {ride.wait_time} min
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -153,6 +164,7 @@ export default function Parques() {
   const [openBucket, setOpenBucket] = useState('fast')
   const [notifActive, setNotifActive] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
+  const [selectedRide, setSelectedRide] = useState(null)
   const intervalRef = useRef(null)
 
   const fetchWaitTimes = useCallback(async (park) => {
@@ -309,6 +321,7 @@ export default function Parques() {
               rides={b.rides}
               isOpen={openBucket === b.key}
               onToggle={() => setOpenBucket(openBucket === b.key ? null : b.key)}
+              onSelect={setSelectedRide}
             />
           ))}
 
@@ -370,6 +383,40 @@ export default function Parques() {
             · Actualiza cada 30s
           </div>
         </>
+      )}
+
+      {/* ── Detalle de atracción ── */}
+      {selectedRide && (
+        <div className="modal-overlay" onClick={() => setSelectedRide(null)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{
+              background: `linear-gradient(135deg, ${selectedRide.info.color}, ${selectedRide.info.color}cc)`,
+              padding: '28px 20px', textAlign: 'center', color: '#fff',
+            }}>
+              <div style={{ fontSize: '3.4rem', lineHeight: 1 }}>{selectedRide.info.emoji}</div>
+              <div style={{ marginTop: 10, fontWeight: 800, fontSize: '1.15rem' }}>{selectedRide.name}</div>
+              <div style={{ marginTop: 4, fontSize: '0.8rem', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {selectedRide.info.tipo}
+              </div>
+            </div>
+            <div style={{ padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{
+                  background: selectedRide.info.color, color: '#fff', borderRadius: 20,
+                  padding: '4px 12px', fontWeight: 700, fontSize: '0.85rem',
+                }}>
+                  ⏱️ {selectedRide.wait_time} min de espera
+                </span>
+              </div>
+              <p style={{ fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--text)' }}>
+                {selectedRide.info.desc}
+              </p>
+              <button className="btn btn-secondary btn-block" style={{ marginTop: 18 }} onClick={() => setSelectedRide(null)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Picker de parque ── */}

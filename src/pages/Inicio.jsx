@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 
 const TRIP_START = new Date('2026-06-10T00:00:00')
-const TRIP_END   = new Date('2026-07-19T00:00:00')
+const TRIP_END   = new Date('2026-07-14T00:00:00')
 
 function useCountdown() {
   const [cd, setCd] = useState(() => calc())
@@ -50,7 +50,7 @@ export default function Inicio() {
       <div className="hero-card" style={{ marginBottom: 20 }}>
         <div className="hero-eyebrow">Viaje familiar · {totalDias} días</div>
         <div className="hero-title">USA 2026 🇺🇸</div>
-        <div className="hero-sub">10 jun — 19 jul · {family?.name}</div>
+        <div className="hero-sub">10 jun — 14 jul · {family?.name}</div>
         {activeStage && (
           <div className="hero-badge">
             {STAGE_EMOJI[activeStage.id]} {activeStage.name}
@@ -141,8 +141,8 @@ export default function Inicio() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           {[
             ['Salida', '10 jun 2026'],
-            ['Regreso', '19 jul 2026'],
-            ['Duración', '40 días'],
+            ['Regreso', '14 jul 2026'],
+            ['Duración', '34 días'],
             ['Personas', '12 viajeros'],
             ['Crucero', '28 jun – 5 jul'],
             ['Parques', 'Universal 14d'],

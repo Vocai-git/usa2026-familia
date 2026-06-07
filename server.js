@@ -327,6 +327,23 @@ app.post('/api/parse-document', async (req, res) => {
   res.json({ ok: true, ai: true, summary: parts.join(' · '), extracted: { title: extracted.title, type: extracted.doc_type, codes: nCodes, events: nEvents } })
 })
 
+// ─── Proxy de documentos (mismo origen → cacheable offline por el SW) ─────────
+app.get('/api/doc', async (req, res) => {
+  const path = req.query.path
+  if (!path) return res.status(400).send('Falta path')
+  const { data: pub } = supabase.storage.from('documents').getPublicUrl(path)
+  try {
+    const r = await fetch(pub.publicUrl)
+    if (!r.ok) return res.status(r.status).send('No encontrado')
+    const buf = Buffer.from(await r.arrayBuffer())
+    res.set('Content-Type', r.headers.get('content-type') || 'application/octet-stream')
+    res.set('Cache-Control', 'public, max-age=31536000, immutable')
+    res.send(buf)
+  } catch {
+    res.status(502).send('Error al obtener el documento')
+  }
+})
+
 // ─── Servir app estática ──────────────────────────────────────────────────────
 app.use(express.static(dist))
 app.get('/{*path}', (_, res) => res.sendFile(join(dist, 'index.html')))

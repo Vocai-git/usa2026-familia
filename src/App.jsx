@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { AdminProvider } from './context/AdminContext'
 import Navigation from './components/Navigation'
@@ -26,13 +26,27 @@ import './styles/main.css'
 
 function AppShell() {
   const { family, isAdmin, exitFamily } = useApp()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const isHome = location.pathname === '/'
 
   if (!family) return <Onboarding />
 
   return (
     <>
       <header className="app-header">
-        <div className="app-header-title">🇺🇸 USA 2026</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {!isHome && (
+            <button
+              onClick={() => navigate(-1)}
+              aria-label="Atrás"
+              style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', padding: '0 4px', lineHeight: 1, color: 'var(--text, #111)' }}
+            >
+              ‹
+            </button>
+          )}
+          <div className="app-header-title">🇺🇸 USA 2026</div>
+        </div>
         <div className="family-chip" onClick={exitFamily}>
           <span>{family.emoji}</span>
           <span>{family.name}</span>
