@@ -1,41 +1,30 @@
 ## Fecha
-2026-06-06
+2026-06-07
 
 ## Que hicimos hoy
-- Migración completa de GitHub Pages → Railway (server.js para Node + push)
-- Implementación de push notifications con app cerrada en iPhone (VAPID + SW custom)
-  - src/sw.js — service worker con push handler
-  - server.js — background polling Queue-Times + web-push
-- Sección Parques: solo 3 parques Universal con live API (sin Disney, sin Volcano Bay)
-  - src/pages/Parques.jsx — Volcano Bay como tarjeta con link a Virtual Line
-- Carga de datos reales en Supabase:
-  - 4 códigos Universal Orlando (confirmación + 3 barcodes)
-  - Evento "Primer día Universal Parks" — 12 jun, familia moledo
-- filtrarPorPerfil añadida al AppContext (bug fix)
-  - src/context/AppContext.jsx
+- Saqué el vuelo NY→Miami de Castro/papa (era family_id=null, lo até a moledo + dupliqué para hermanos)
+- Arreglé el checklist que no cargaba en móvil — `order('created_at')` sobre columna inexistente (src/pages/Listas.jsx)
+- 100% de fotos de atracciones con matcheo temático por palabra clave (src/data/atracciones.js)
+- Agregué IA al panel de escritorio (src/pages/admin/Documentos.jsx + server.js /api/parse-document)
+- Vista Hoy en inicio (src/components/HoyPanel.jsx); ubicación en vivo en el mapa (src/pages/Mapa.jsx + tabla live_locations)
+- Gastos por familia (src/pages/Gastos.jsx + tabla expenses); guía Nueva York solo Moledo (src/pages/NuevaYork.jsx)
+- Mapa de cada parque: atracciones coloreadas por espera + tu GPS (src/components/ParkMap.jsx + src/data/parkMaps.js)
+- Arreglé notificaciones push de parques — clave VAPID como Uint8Array para Safari (src/pages/Parques.jsx)
 
 ## Que quedo terminado
-- fa16be1 — PWA start_url/scope corregidos para Railway
-- f541f2b — base path migrado de /usa2026-familia/ a /
-- 58ce9c9 — push notifications + mejoras parques
-- Dominio Railway generado: usa2026-app-production.up.railway.app
-- Datos Universal cargados en Supabase (codes + events)
+- Todo lo de arriba commiteado (12 commits, último 56d7e95) y deployado en Railway
+- Cobertura mapas: USF 18/18, IOA 25/25, Epic 19/19 (Epic aproximado, no está en OSM)
+- Checklist visible en móvil; fotos de atracciones al 100%; push de parques funcionando
 
 ## Que quedo a medias
-- Railway deploy en curso al cerrar (2 commits pusheados, auto-deploy tardó ~5 min)
-- Push notifications sin testear end-to-end (necesita app instalada en iPhone)
-- Admin.jsx eliminado localmente pero no commiteado (git status lo muestra como deleted)
-- supabase/ y .claude/ sin commitear (agregar o ignorar al retomar)
-- Datos del viaje pendientes de cargar: vuelos, hoteles (Orlando, NY, Miami), crucero, ESTA, seguro
+- Nada pendiente de la sesión. Falta SOLO pushear a origin (12 commits adelante de origin/main)
 
 ## Proximo paso concreto al retomar
-- Abrir https://usa2026-app-production.up.railway.app y verificar que la app funciona
-- Testear push: instalar en iPhone como PWA → ir a Parques → activar alarma → esperar notificación
-- Luego cargar vuelos y hotel (pedir documentos a Agus)
+- Esperar feedback de Agus tras probar el mapa de parques y el GPS
 
 ## Notas/decisiones importantes
-- App movida a Railway definitivamente — GitHub Pages era solo estático, no podía correr Node
-- Volcano Bay excluida de la API (usa Virtual Line de Universal, no Queue-Times)
-- Disney excluido por completo (no tienen entradas)
-- VAPID keys seteadas en Railway via GraphQL API (no en .env local)
-- Polling de tiempos de espera: 30 segundos
+- Seguridad NO es prioridad (app efímera ~35 días, familias de confianza) — no insistir
+- Railway: `railway up --detach` deploya; `git push` NO deploya. URL prod: https://usa2026-app-production.up.railway.app
+- Supabase DDL vía Management API (el CLI tiene colisión de versiones de migración)
+- iOS push solo funciona con la PWA instalada
+- Familias: moledo, hermanos (Lewin), amigos (Castro), papa (Luis y Andrea)
