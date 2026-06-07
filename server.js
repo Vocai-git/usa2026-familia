@@ -246,7 +246,8 @@ async function buildContentBlock(url, ext) {
 
 app.post('/api/parse-document', async (req, res) => {
   const { storagePath, familyId, fileName, forceType } = req.body || {}
-  if (!storagePath || !familyId) return res.status(400).json({ error: 'Faltan datos' })
+  if (!storagePath) return res.status(400).json({ error: 'Faltan datos' })
+  const famId = familyId || null  // null = documento compartido (todas las familias)
 
   const ext = storagePath.split('.').pop().toLowerCase()
   const { data: pub } = supabase.storage.from('documents').getPublicUrl(storagePath)
@@ -272,7 +273,7 @@ app.post('/api/parse-document', async (req, res) => {
   // Si la IA falló, igual guardamos el documento para no perder el archivo
   if (!extracted) {
     await supabase.from('documents').insert({
-      name: fileName || 'Documento', type: forceType || 'other', storage_path: storagePath, family_id: familyId,
+      name: fileName || 'Documento', type: forceType || 'other', storage_path: storagePath, family_id: famId,
       notes: 'Subido sin procesar (la IA no pudo leerlo)'
     })
     return res.json({ ok: true, ai: false, summary: 'Documento guardado (sin lectura automática)' })
@@ -297,7 +298,7 @@ app.post('/api/parse-document', async (req, res) => {
     owner_id: ownerId,
     storage_path: storagePath,
     notes: extracted.notes || null,
-    family_id: familyId
+    family_id: famId
   })
 
   // 2) Códigos
@@ -305,7 +306,7 @@ app.post('/api/parse-document', async (req, res) => {
   if (Array.isArray(extracted.codes) && extracted.codes.length) {
     const rows = extracted.codes.filter(c => c.code).map(c => ({
       label: c.label || extracted.title, code: c.code, sub_info: c.sub_info || null,
-      people: ownerId ? [ownerId] : [], family_id: familyId
+      people: ownerId ? [ownerId] : [], family_id: famId
     }))
     if (rows.length) { await supabase.from('codes').insert(rows); nCodes = rows.length }
   }
@@ -319,7 +320,7 @@ app.post('/api/parse-document', async (req, res) => {
       stage_id: stageFor(e.date), date: e.date, time: e.time || null, type: e.type || 'other',
       title: e.title, details: {},
       location: e.location_name ? { name: e.location_name, address: e.location_address || '' } : {},
-      people: ownerId ? [ownerId] : [], family_id: familyId
+      people: ownerId ? [ownerId] : [], family_id: famId
     }))
     if (rows.length) { await supabase.from('events').insert(rows); nEvents = rows.length }
   }

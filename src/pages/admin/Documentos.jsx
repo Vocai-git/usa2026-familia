@@ -17,6 +17,8 @@ export default function Documentos() {
   const [uploading, setUploading] = useState(false)
   const [viewUrl, setViewUrl] = useState(null)
   const [qrMode, setQrMode] = useState(false)
+  const [useAI, setUseAI] = useState(true)
+  const [aiStatus, setAiStatus] = useState(null)
 
   const fetch = async () => {
     setLoading(true)
@@ -32,7 +34,29 @@ export default function Documentos() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const save = async () => {
-    if (!form.name) return
+    // Modo IA: requiere archivo, lee y carga solo (igual que el móvil)
+    if (useAI && file) {
+      setUploading(true)
+      setAiStatus(`🤖 Leyendo ${file.name}...`)
+      const ext = file.name.split('.').pop()
+      const path = `${form.type || 'doc'}/${form.owner_id || 'grupo'}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: false })
+      if (error) { showToast('❌ Error al subir archivo'); setUploading(false); setAiStatus(null); return }
+      try {
+        const r = await fetch('/api/parse-document', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storagePath: path, familyId: form.family_id || null, fileName: file.name }),
+        })
+        const j = await r.json()
+        showToast(j.ok ? `✅ ${j.summary || 'Documento cargado'}` : '⚠️ No se pudo leer')
+      } catch { showToast('⚠️ Error de conexión con la IA') }
+      setUploading(false); setAiStatus(null); setModal(false); setFile(null)
+      setForm({ name:'', type:'passport', owner_id:'', notes:'', family_id:'' })
+      fetch()
+      return
+    }
+    // Modo manual
+    if (!form.name) { showToast('⚠️ Poné un nombre o activá la IA con un archivo'); return }
     setUploading(true)
     let storage_path = null
     if (file) {
@@ -122,6 +146,34 @@ export default function Documentos() {
               <button className="btn btn-ghost btn-icon" onClick={() => setModal(false)}>✕</button>
             </div>
             <div className="modal-body">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: useAI ? '#eef2ff' : '#f4f4f5', border: `1px solid ${useAI ? '#c7d2fe' : '#e4e4e7'}`, borderRadius: 10, cursor: 'pointer', marginBottom: 14 }}>
+                <input type="checkbox" checked={useAI} onChange={e => setUseAI(e.target.checked)} style={{ width: 18, height: 18 }} />
+                <div>
+                  <div className="fw-700 text-sm">🤖 Leer con IA (recomendado)</div>
+                  <div className="text-xs text-muted">Subí solo el archivo y la IA clasifica, extrae códigos y eventos sola.</div>
+                </div>
+              </label>
+
+              {useAI ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Archivo (foto o PDF) *</label>
+                    <input type="file" accept="image/*,.pdf" onChange={e => setFile(e.target.files[0])} style={{ width: '100%', marginTop: 4 }} />
+                    {file && <div className="text-xs text-muted mt-4">📎 {file.name}</div>}
+                  </div>
+                  {isSuper && (
+                    <div className="form-group" style={{ marginTop: 12 }}>
+                      <label className="form-label">Familia</label>
+                      <select className="form-select" value={form.family_id} onChange={e => set('family_id', e.target.value)}>
+                        <option value="">Compartido (todos)</option>
+                        {families.map(f => <option key={f.id} value={f.id}>{f.emoji} {f.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {aiStatus && <div style={{ marginTop: 14, padding: 12, background: '#eef2ff', borderRadius: 10, fontSize: '0.85rem' }}>{aiStatus}</div>}
+                </>
+              ) : (
+              <>
               <div className="form-group">
                 <label className="form-label">Nombre del documento *</label>
                 <input className="form-input" placeholder="Ej: Pasaporte Agustín" value={form.name} onChange={e => set('name', e.target.value)} />
@@ -155,11 +207,13 @@ export default function Documentos() {
                   </select>
                 </div>
               )}
+              </>
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn btn-primary" onClick={save} disabled={uploading}>
-                {uploading ? '⏳ Subiendo...' : '⬆️ Subir'}
+              <button className="btn btn-secondary" onClick={() => setModal(false)} disabled={uploading}>Cancelar</button>
+              <button className="btn btn-primary" onClick={save} disabled={uploading || (useAI && !file)}>
+                {uploading ? '🤖 Procesando...' : (useAI ? '⬆️ Subir y leer con IA' : '⬆️ Subir')}
               </button>
             </div>
           </div>
