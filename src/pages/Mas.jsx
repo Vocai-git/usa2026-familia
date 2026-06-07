@@ -13,7 +13,7 @@ const MAS_ITEMS = [
 export default function Mas() {
   const location = useLocation()
   const { isAdmin, stages, family } = useApp()
-  const verNY = isAdmin || stages.some(s => s.id === 'ny' && s.families?.includes(family?.id))
+  const verNY = isAdmin || family?.id === 'moledo'
   const items = verNY
     ? [MAS_ITEMS[0], { to: '/mas/nuevayork', icon: '🗽', label: 'Nueva York', desc: 'Llegar del aeropuerto y moverse' }, ...MAS_ITEMS.slice(1)]
     : MAS_ITEMS

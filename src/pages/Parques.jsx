@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { infoAtraccion } from '../data/atracciones'
+import ParkMap from '../components/ParkMap'
+import { PARK_CENTERS } from '../data/parkMaps'
 
 const PARKS = [
   { id: 334, name: 'Epic Universe',         emoji: '🌌' },
@@ -204,6 +206,7 @@ export default function Parques() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifMsg, setNotifMsg] = useState(null)
   const [selectedRide, setSelectedRide] = useState(null)
+  const [view, setView] = useState('list')
   const intervalRef = useRef(null)
 
   const fetchWaitTimes = useCallback(async (park) => {
@@ -369,51 +372,34 @@ export default function Parques() {
             </div>
           )}
 
-          {/* ── ¿Qué hago ahora? ── */}
-          {allOpen.length > 0 && (() => {
-            const picks = [...allOpen].sort((a, b) => a.wait_time - b.wait_time).slice(0, 3)
-            return (
-              <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden', border: 'none' }}>
-                <div style={{ background: 'linear-gradient(135deg, #16A34A 0%, #22C55E 100%)', color: '#fff', padding: '12px 16px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.98rem' }}>🎯 ¿Qué hago ahora?</div>
-                  <div style={{ fontSize: '0.74rem', opacity: 0.9 }}>Las atracciones abiertas con menos cola en este momento</div>
-                </div>
-                <div style={{ background: 'var(--surface)' }}>
-                  {picks.map((ride, i) => {
-                    const info = infoAtraccion(ride.name)
-                    return (
-                      <button
-                        key={ride.id}
-                        onClick={() => setSelectedRide({ ...ride, info })}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-                          padding: '11px 16px', background: 'none', cursor: 'pointer',
-                          border: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <span style={{
-                          width: 24, height: 24, borderRadius: 12, flexShrink: 0,
-                          background: i === 0 ? '#16A34A' : 'var(--border)', color: i === 0 ? '#fff' : 'var(--text-muted)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.8rem',
-                        }}>{i + 1}</span>
-                        <span style={{ fontSize: '1.3rem' }}>{info.emoji}</span>
-                        <span style={{ flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>{ride.name}</span>
-                        <span style={{
-                          background: ride.wait_time <= 15 ? '#dcfce7' : '#fef9c3',
-                          color: ride.wait_time <= 15 ? '#166534' : '#854d0e',
-                          borderRadius: 20, padding: '3px 10px', fontWeight: 800, fontSize: '0.82rem', flexShrink: 0,
-                        }}>{ride.wait_time}′</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
+          {/* Toggle Tiempos / Mapa */}
+          {lands.length > 0 && PARK_CENTERS[selectedPark.id] && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14, background: 'var(--bg)', padding: 4, borderRadius: 12 }}>
+              {[['list', '🕐 Tiempos'], ['map', '🗺️ Mapa']].map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  style={{
+                    flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
+                    fontWeight: 700, fontSize: '0.85rem',
+                    background: view === v ? 'var(--surface)' : 'transparent',
+                    color: view === v ? 'var(--accent)' : 'var(--text-muted)',
+                    boxShadow: view === v ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Mapa del parque */}
+          {view === 'map' && lands.length > 0 && PARK_CENTERS[selectedPark.id] && (
+            <ParkMap parkId={selectedPark.id} rides={lands.flatMap(l => l.rides || [])} />
+          )}
 
           {/* Buckets acordeón */}
-          {bucketed.map(b => (
+          {view === 'list' && bucketed.map(b => (
             <BucketSection
               key={b.key}
               bucket={b}
@@ -424,7 +410,7 @@ export default function Parques() {
             />
           ))}
 
-          {lands.length > 0 && allOpen.length === 0 && (
+          {view === 'list' && lands.length > 0 && allOpen.length === 0 && (
             <div className="empty-state">
               <div className="empty-icon">🎢</div>
               <div className="empty-title">Sin atracciones abiertas</div>
