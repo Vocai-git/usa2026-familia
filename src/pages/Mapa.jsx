@@ -43,12 +43,112 @@ function FlyTo({ pin }) {
   return null
 }
 
+// Marcador de persona (ubicación en vivo)
+function personIcon(person, isMe) {
+  const color = person.color || '#2563EB'
+  const initial = (person.name || '?').trim().charAt(0).toUpperCase()
+  const html = `
+    <div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+      <div style="
+        background:${color};color:#fff;font-weight:800;font-size:13px;
+        min-width:30px;height:30px;padding:0 7px;border-radius:15px;
+        display:flex;align-items:center;justify-content:center;gap:3px;
+        border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);white-space:nowrap;
+      ">${person.emoji || ''}<span>${person.name || initial}</span></div>
+      ${isMe ? '<div style="font-size:9px;color:'+color+';font-weight:800;margin-top:1px;">(yo)</div>' : ''}
+      <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${color};margin-top:-1px;"></div>
+    </div>`
+  return L.divIcon({ html, iconSize: [60, 44], iconAnchor: [30, 44], className: 'person-marker' })
+}
+
+// id de dispositivo persistente (para no duplicar a la misma persona)
+function getDeviceId() {
+  let id = localStorage.getItem('live_device_id')
+  if (!id) { id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('live_device_id', id) }
+  return id
+}
+
+function useLiveLocation(family) {
+  const [people, setPeople] = useState([])
+  const [sharing, setSharing] = useState(() => localStorage.getItem('live_sharing') === '1')
+  const [error, setError] = useState(null)
+  const watchRef = useRef(null)
+  const lastSent = useRef(0)
+  const deviceId = getDeviceId()
+
+  // Traer ubicaciones de todos (activas: < 3 min)
+  const fetchPeople = async () => {
+    const cutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString()
+    const { data } = await supabase.from('live_locations').select('*').gt('updated_at', cutoff)
+    setPeople(data || [])
+  }
+
+  useEffect(() => {
+    fetchPeople()
+    const t = setInterval(fetchPeople, 12000)
+    return () => clearInterval(t)
+  }, [])
+
+  const push = async (pos) => {
+    const now = Date.now()
+    if (now - lastSent.current < 8000) return // throttle 8s
+    lastSent.current = now
+    await supabase.from('live_locations').upsert({
+      id: deviceId,
+      name: localStorage.getItem('live_name') || family?.name || 'Alguien',
+      family_id: family?.id || null,
+      color: family?.color || '#2563EB',
+      emoji: family?.emoji || '📍',
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
+    fetchPeople()
+  }
+
+  const start = () => {
+    if (!navigator.geolocation) { setError('Tu dispositivo no soporta geolocalización'); return }
+    let name = localStorage.getItem('live_name')
+    if (!name) {
+      name = (window.prompt('¿Con qué nombre te ven los demás?', family?.name || '') || '').trim()
+      if (name) localStorage.setItem('live_name', name)
+    }
+    setError(null)
+    watchRef.current = navigator.geolocation.watchPosition(
+      push,
+      (e) => setError(e.code === 1 ? 'Activá los permisos de ubicación' : 'No se pudo obtener tu ubicación'),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    )
+    localStorage.setItem('live_sharing', '1')
+    setSharing(true)
+  }
+
+  const stop = async () => {
+    if (watchRef.current != null) { navigator.geolocation.clearWatch(watchRef.current); watchRef.current = null }
+    localStorage.setItem('live_sharing', '')
+    setSharing(false)
+    await supabase.from('live_locations').delete().eq('id', deviceId)
+    fetchPeople()
+  }
+
+  // Reanudar si quedó activo de antes
+  useEffect(() => {
+    if (sharing && watchRef.current == null) start()
+    return () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return { people, sharing, error, start, stop, deviceId }
+}
+
 export default function Mapa() {
-  const { filtrarPorPerfil } = useApp()
+  const { filtrarPorPerfil, family } = useApp()
   const [pins, setPins] = useState([])
   const [filter, setFilter] = useState('all')
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { people, sharing, error: geoError, start, stop, deviceId } = useLiveLocation(family)
 
   useEffect(() => {
     supabase.from('map_pins').select('*').then(({ data }) => {
@@ -116,7 +216,43 @@ export default function Mapa() {
               eventHandlers={{ click: () => setSelected(pin) }}
             />
           ))}
+          {/* Personas en vivo */}
+          {people.filter(p => p.lat != null && p.lng != null).map(p => (
+            <Marker
+              key={p.id}
+              position={[p.lat, p.lng]}
+              icon={personIcon(p, p.id === deviceId)}
+              zIndexOffset={1000}
+            />
+          ))}
         </MapContainer>
+
+        {/* Botón ubicación en vivo */}
+        <div style={{ position: 'absolute', bottom: 16, left: 12, zIndex: 1000 }}>
+          <button
+            onClick={sharing ? stop : start}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: sharing ? '#16A34A' : '#fff',
+              color: sharing ? '#fff' : '#111',
+              border: 'none', borderRadius: 24, padding: '10px 16px',
+              fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
+            }}
+          >
+            {sharing ? '🟢 Compartiendo ubicación · Detener' : '📍 Activar ubicación'}
+          </button>
+          {geoError && (
+            <div style={{ marginTop: 6, background: '#FEF2F2', color: '#B91C1C', fontSize: '0.7rem', padding: '5px 10px', borderRadius: 10, maxWidth: 230 }}>
+              ⚠️ {geoError}
+            </div>
+          )}
+          {sharing && people.length > 0 && (
+            <div style={{ marginTop: 6, background: 'rgba(255,255,255,0.92)', fontSize: '0.7rem', padding: '4px 10px', borderRadius: 10, fontWeight: 600 }}>
+              👥 {people.length} compartiendo ahora
+            </div>
+          )}
+        </div>
 
         {/* Conteo */}
         <div style={{
