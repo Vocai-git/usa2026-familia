@@ -248,7 +248,7 @@ app.post('/api/parse-document', async (req, res) => {
   const { storagePath, familyId, fileName } = req.body || {}
   if (!storagePath || !familyId) return res.status(400).json({ error: 'Faltan datos' })
 
-  const ext = (fileName || storagePath).split('.').pop().toLowerCase()
+  const ext = storagePath.split('.').pop().toLowerCase()
   const { data: pub } = supabase.storage.from('documents').getPublicUrl(storagePath)
 
   let extracted = null
