@@ -18,6 +18,18 @@ self.addEventListener('activate', event => {
 })
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
+
+  // Navegaciones (cargar la app): SIEMPRE red primero cuando hay conexión,
+  // así nunca se queda con un HTML viejo que apunta a un bundle viejo.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match(event.request).then(r => r || caches.match('/index.html'))
+      )
+    )
+    return
+  }
+
   if (event.request.method !== 'GET' || url.pathname !== '/api/doc') return
   event.respondWith(
     caches.open(DOC_CACHE).then(async cache => {
