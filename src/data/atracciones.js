@@ -46,8 +46,39 @@ const ATRACCIONES = [
 
 const FALLBACK = { emoji: '🎢', tipo: 'Atracción', color: '#C8602A', desc: 'Atracción del parque. El tiempo de espera se actualiza en vivo.' }
 
+// Fotos reales (subidas a la app, servidas por /api/doc → andan offline también)
+const FOTOS = {
+  'hulk': 'atracciones/hulk.jpg',
+  'velocicoaster': 'atracciones/velocicoaster.jpg',
+  'hagrid': 'atracciones/hagrid.jpg',
+  'forbidden journey': 'atracciones/forbidden-journey.jpg',
+  'gringotts': 'atracciones/gringotts.jpg',
+  'mummy': 'atracciones/mummy.jpg',
+  'rockit': 'atracciones/rockit.jpg',
+  'spider-man': 'atracciones/spider-man.jpg',
+  'river adventure': 'atracciones/river-adventure.png',
+  'transformers': 'atracciones/transformers.jpg',
+  'minion': 'atracciones/minion.jpg',
+  'men in black': 'atracciones/men-in-black.png',
+  'simpsons': 'atracciones/simpsons.jpg',
+  'e.t.': 'atracciones/e-t.png',
+  'fast & furious': 'atracciones/fast-furious.jpg',
+  'kong': 'atracciones/kong.png',
+  'doctor doom': 'atracciones/doctor-doom.jpg',
+  'cat in the hat': 'atracciones/cat-in-the-hat.png',
+  'popeye': 'atracciones/popeye.jpg',
+  'ripsaw falls': 'atracciones/ripsaw-falls.webp',
+  'hippogriff': 'atracciones/hippogriff.jpg',
+  'stardust': 'atracciones/stardust.jpg',
+  'mario kart': 'atracciones/mario-kart.jpg',
+}
+
 export function infoAtraccion(nombre) {
   const n = (nombre || '').toLowerCase()
-  const found = ATRACCIONES.find(a => a.k.some(key => n.includes(key)))
-  return found || FALLBACK
+  const found = ATRACCIONES.find(a => a.k.some(key => n.includes(key))) || FALLBACK
+  let img = null
+  for (const [key, path] of Object.entries(FOTOS)) {
+    if (n.includes(key)) { img = `/api/doc?path=${encodeURIComponent(path)}`; break }
+  }
+  return { ...found, img }
 }

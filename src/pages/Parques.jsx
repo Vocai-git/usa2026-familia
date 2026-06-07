@@ -21,6 +21,30 @@ function readParkAlarms() {
   try { return JSON.parse(localStorage.getItem('park_alarms') || '{}') } catch { return {} }
 }
 
+function RideBanner({ info, name }) {
+  const [err, setErr] = useState(false)
+  if (info.img && !err) {
+    return (
+      <div style={{ position: 'relative', height: 190, background: info.color }}>
+        <img src={info.img} alt={name} onError={() => setErr(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0) 55%)' }} />
+        <div style={{ position: 'absolute', left: 16, right: 16, bottom: 12, color: '#fff' }}>
+          <div style={{ fontWeight: 800, fontSize: '1.15rem', textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{name}</div>
+          <div style={{ fontSize: '0.75rem', opacity: 0.95, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{info.emoji} {info.tipo}</div>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ background: `linear-gradient(135deg, ${info.color}, ${info.color}cc)`, padding: '28px 20px', textAlign: 'center', color: '#fff' }}>
+      <div style={{ fontSize: '3.4rem', lineHeight: 1 }}>{info.emoji}</div>
+      <div style={{ marginTop: 10, fontWeight: 800, fontSize: '1.15rem' }}>{name}</div>
+      <div style={{ marginTop: 4, fontSize: '0.8rem', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{info.tipo}</div>
+    </div>
+  )
+}
+
 function BucketSection({ bucket, rides, isOpen, onToggle, onSelect }) {
   const sorted = [...rides].sort((a, b) => a.wait_time - b.wait_time)
 
@@ -389,16 +413,7 @@ export default function Parques() {
       {selectedRide && (
         <div className="modal-overlay" onClick={() => setSelectedRide(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{
-              background: `linear-gradient(135deg, ${selectedRide.info.color}, ${selectedRide.info.color}cc)`,
-              padding: '28px 20px', textAlign: 'center', color: '#fff',
-            }}>
-              <div style={{ fontSize: '3.4rem', lineHeight: 1 }}>{selectedRide.info.emoji}</div>
-              <div style={{ marginTop: 10, fontWeight: 800, fontSize: '1.15rem' }}>{selectedRide.name}</div>
-              <div style={{ marginTop: 4, fontSize: '0.8rem', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {selectedRide.info.tipo}
-              </div>
-            </div>
+            <RideBanner info={selectedRide.info} name={selectedRide.name} />
             <div style={{ padding: '18px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <span style={{

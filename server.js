@@ -336,7 +336,9 @@ app.get('/api/doc', async (req, res) => {
     const r = await fetch(pub.publicUrl)
     if (!r.ok) return res.status(r.status).send('No encontrado')
     const buf = Buffer.from(await r.arrayBuffer())
-    res.set('Content-Type', r.headers.get('content-type') || 'application/octet-stream')
+    const EXT_CT = { html: 'text/html; charset=utf-8', htm: 'text/html; charset=utf-8', pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' }
+    const ext = path.split('.').pop().toLowerCase()
+    res.set('Content-Type', EXT_CT[ext] || r.headers.get('content-type') || 'application/octet-stream')
     res.set('Cache-Control', 'public, max-age=31536000, immutable')
     res.send(buf)
   } catch {
