@@ -30,24 +30,23 @@ function DocCard({ doc, onView }) {
         {doc.notes && <div className="text-sm text-muted" style={{ marginTop: 4 }}>{doc.notes}</div>}
       </div>
       {doc.storage_path && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        isQr ? (
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => onView(doc, true)}
+            style={{ fontSize: '0.72rem', padding: '5px 10px', background: '#18181B' }}
+          >
+            📲 QR
+          </button>
+        ) : (
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => onView(doc, false)}
             style={{ fontSize: '0.72rem', padding: '5px 10px' }}
           >
-            👁 Ver
+            ⬇️ Ver
           </button>
-          {isQr && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => onView(doc, true)}
-              style={{ fontSize: '0.72rem', padding: '5px 10px', background: '#18181B' }}
-            >
-              📲 QR
-            </button>
-          )}
-        </div>
+        )
       )}
     </div>
   )
