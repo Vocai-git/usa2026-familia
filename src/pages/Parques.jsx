@@ -157,11 +157,25 @@ async function getPushSub() {
   return sw.pushManager.getSubscription()
 }
 
+// Safari/iOS exige la clave VAPID como Uint8Array (no string base64url)
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  const arr = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
+  return arr
+}
+
 async function subscribeAndSave(alarms) {
   const r = await fetch('/api/push/vapid-key')
   const { publicKey } = await r.json()
+  if (!publicKey) throw new Error('Falta la clave VAPID en el servidor')
   const sw = await navigator.serviceWorker.ready
-  const sub = await sw.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: publicKey })
+  const sub = await sw.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  })
   await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -188,6 +202,7 @@ export default function Parques() {
   const [openBucket, setOpenBucket] = useState('fast')
   const [notifActive, setNotifActive] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
+  const [notifMsg, setNotifMsg] = useState(null)
   const [selectedRide, setSelectedRide] = useState(null)
   const intervalRef = useRef(null)
 
@@ -233,6 +248,7 @@ export default function Parques() {
 
   const toggleNotif = async () => {
     setNotifLoading(true)
+    setNotifMsg(null)
     try {
       const globalKey = `_global_${selectedPark.id}`
       const saved = readParkAlarms()
@@ -245,24 +261,40 @@ export default function Parques() {
         const sub = await getPushSub()
         if (sub) syncAlarms(sub, saved)
       } else {
-        // Activar
-        if (typeof Notification === 'undefined') { setNotifActive(false); return }
+        // Activar — con feedback explícito en cada caso (nunca falla en silencio)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+        const iOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+        const soportePush = typeof Notification !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window
+
+        if (!soportePush) {
+          setNotifMsg(iOS && !isStandalone
+            ? '📲 En iPhone las notificaciones solo funcionan con la app instalada. Abrí Safari → botón Compartir → "Agregar a inicio", y entrá desde ese ícono.'
+            : 'Tu navegador no soporta notificaciones push.')
+          return
+        }
+
         const permission = await Notification.requestPermission()
-        if (permission !== 'granted') return
+        if (permission !== 'granted') {
+          setNotifMsg(permission === 'denied'
+            ? '⚠️ Tenés las notificaciones bloqueadas. Activálas en Ajustes del teléfono → Notificaciones → USA 2026 (o en Safari para este sitio).'
+            : 'Necesito tu permiso de notificaciones para avisarte.')
+          return
+        }
 
         saved[globalKey] = { type: 'global', parkId: selectedPark.id, threshold: 15, active: true }
         localStorage.setItem('park_alarms', JSON.stringify(saved))
-        setNotifActive(true)
 
         let sub = await getPushSub()
-        if (!sub) {
-          sub = await subscribeAndSave(saved)
-        } else {
-          syncAlarms(sub, saved)
-        }
+        if (!sub) sub = await subscribeAndSave(saved)
+        else syncAlarms(sub, saved)
+
+        setNotifActive(true)
+        setNotifMsg('✅ Listo, te avisamos cuando una atracción baje de 15 min.')
       }
     } catch (e) {
       console.error(e)
+      setNotifMsg('No se pudo activar: ' + (e?.message || 'error desconocido') + '. Probá instalando la app a la pantalla de inicio.')
+      setNotifActive(false)
     } finally {
       setNotifLoading(false)
     }
@@ -386,9 +418,9 @@ export default function Parques() {
                   {notifLoading ? '...' : notifActive ? 'Desactivar' : 'Activar'}
                 </button>
               </div>
-              {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
-                <div className="text-sm text-muted" style={{ marginTop: 8 }}>
-                  ⚠️ Las notificaciones están bloqueadas en este dispositivo. Habilitálas en Configuración → Safari → [este sitio].
+              {notifMsg && (
+                <div className="text-sm" style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8, background: notifActive ? '#ecfdf5' : '#fff7ed', color: notifActive ? '#065f46' : '#9a3412', lineHeight: 1.45 }}>
+                  {notifMsg}
                 </div>
               )}
               {notifActive && (
