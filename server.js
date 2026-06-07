@@ -62,6 +62,18 @@ app.delete('/api/push/subscribe', async (req, res) => {
   res.json({ ok: true })
 })
 
+// ─── Proxy Queue-Times (evita CORS del browser) ──────────────────────────────
+app.get('/api/park/:id/times', async (req, res) => {
+  try {
+    const r = await fetch(`https://queue-times.com/parks/${req.params.id}/queue_times.json`)
+    if (!r.ok) return res.status(r.status).json({ error: 'API no disponible' })
+    const data = await r.json()
+    res.json(data)
+  } catch (e) {
+    res.status(500).json({ error: 'Error al consultar Queue-Times' })
+  }
+})
+
 // ─── Background polling: cada 30s ────────────────────────────────────────────
 const PARK_IDS = [334, 65, 64]
 const parkCache = {}

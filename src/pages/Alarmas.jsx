@@ -88,8 +88,9 @@ export default function Alarmas() {
 
       {filtered.length === 0 && (
         <div className="empty-state">
-          <div className="icon">🔔</div>
-          <p>Sin alarmas {filter === 'upcoming' ? 'próximas' : 'aquí'}.</p>
+          <div className="empty-icon">🔔</div>
+          <div className="empty-title">Sin alarmas {filter === 'upcoming' ? 'próximas' : 'aquí'}</div>
+          <div className="empty-text">Las alarmas de check-in, vuelos y crucero aparecen acá cuando se carguen desde el admin.</div>
         </div>
       )}
 

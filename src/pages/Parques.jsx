@@ -88,7 +88,7 @@ export default function Parques() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`https://queue-times.com/parks/${park.id}/queue_times.json`)
+      const res = await fetch(`/api/park/${park.id}/times`)
       if (!res.ok) throw new Error('API no disponible')
       const data = await res.json()
       const allRides = []
