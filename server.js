@@ -245,7 +245,7 @@ async function buildContentBlock(url, ext) {
 }
 
 app.post('/api/parse-document', async (req, res) => {
-  const { storagePath, familyId, fileName } = req.body || {}
+  const { storagePath, familyId, fileName, forceType } = req.body || {}
   if (!storagePath || !familyId) return res.status(400).json({ error: 'Faltan datos' })
 
   const ext = storagePath.split('.').pop().toLowerCase()
@@ -272,11 +272,14 @@ app.post('/api/parse-document', async (req, res) => {
   // Si la IA falló, igual guardamos el documento para no perder el archivo
   if (!extracted) {
     await supabase.from('documents').insert({
-      name: fileName || 'Documento', type: 'other', storage_path: storagePath, family_id: familyId,
+      name: fileName || 'Documento', type: forceType || 'other', storage_path: storagePath, family_id: familyId,
       notes: 'Subido sin procesar (la IA no pudo leerlo)'
     })
     return res.json({ ok: true, ai: false, summary: 'Documento guardado (sin lectura automática)' })
   }
+
+  // Tipo forzado (ej: solapa Mundial) — la IA igual extrae códigos/notas
+  if (forceType) extracted.doc_type = forceType
 
   // Mapear titular al id de persona
   let ownerId = null

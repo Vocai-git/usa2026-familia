@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useApp } from '../context/AppContext'
 
 const NAV = [
   { to: '/',           icon: '🏠', label: 'Inicio' },
@@ -9,9 +10,15 @@ const NAV = [
 ]
 
 export default function Navigation() {
+  const { stages, family, isAdmin } = useApp()
+  const verMundial = isAdmin || stages.some(s => s.id === 'mundial' && s.families?.includes(family?.id))
+  const items = verMundial
+    ? [...NAV.slice(0, 4), { to: '/mundial', icon: '⚽', label: 'Mundial' }, NAV[4]]
+    : NAV
+
   return (
     <nav className="bottom-nav">
-      {NAV.map(({ to, icon, label }) => (
+      {items.map(({ to, icon, label }) => (
         <NavLink
           key={to}
           to={to}

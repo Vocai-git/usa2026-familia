@@ -7,6 +7,7 @@ import Inicio from './pages/Inicio'
 import Itinerario from './pages/Itinerario'
 import Parques from './pages/Parques'
 import Documentos from './pages/Documentos'
+import Mundial from './pages/Mundial'
 import Mas from './pages/Mas'
 import Mapa from './pages/Mapa'
 import Listas from './pages/Listas'
@@ -60,6 +61,7 @@ function AppShell() {
           <Route path="/itinerario"  element={<Itinerario />} />
           <Route path="/parques"     element={<Parques />} />
           <Route path="/documentos"  element={<Documentos />} />
+          <Route path="/mundial"     element={<Mundial />} />
           <Route path="/mas"         element={<Mas />}>
             <Route path="mapa"        element={<Mapa />} />
             <Route path="listas"      element={<Listas />} />
