@@ -38,7 +38,7 @@ function makeIcon(cat) {
 function FlyTo({ pin }) {
   const map = useMap()
   useEffect(() => {
-    if (pin) map.flyTo([pin.lat, pin.lng], 15, { duration: 0.8 })
+    if (pin && pin.lat != null && pin.lng != null) map.flyTo([pin.lat, pin.lng], 15, { duration: 0.8 })
   }, [pin, map])
   return null
 }
@@ -57,7 +57,9 @@ export default function Mapa() {
     })
   }, [])
 
-  const visible = filtrarPorPerfil(pins).filter(p => filter === 'all' || p.category === filter)
+  const visible = filtrarPorPerfil(pins)
+    .filter(p => p.lat != null && p.lng != null)
+    .filter(p => filter === 'all' || p.category === filter)
   const usedCats = [...new Set(pins.map(p => p.category))].filter(c => CATEGORIES[c])
   const center = [28.4742, -81.4697] // Universal Orlando como centro
 

@@ -37,7 +37,7 @@ export default function Inicio() {
   const { stages, events, filtrarEventos, family } = useApp()
   const cd = useCountdown()
   const now = new Date()
-  const upcoming = filtrarEventos(events).filter(e => new Date(e.date) >= now).slice(0, 3)
+  const upcoming = filtrarEventos(events).filter(e => new Date(e.date + 'T12:00:00') >= now).slice(0, 3)
   const activeStage = stages.find(s => {
     const from = new Date(s.from_date), to = new Date(s.to_date)
     return now >= from && now <= to

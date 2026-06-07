@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
 
 export default function Listas() {
-  const { filtrarPorPerfil, perfil } = useApp()
+  const { filtrarPorPerfil, family } = useApp()
+  const perfil = family?.id ?? 'anon'
   const [checklists, setChecklists] = useState([])
   const [items, setItems] = useState([])
   const [checked, setChecked] = useState(() => JSON.parse(localStorage.getItem(`checks_${perfil}`) || '{}'))

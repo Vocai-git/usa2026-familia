@@ -7,7 +7,10 @@ const SUPER_ADMIN_CODE = import.meta.env.VITE_ADMIN_PASSWORD || 'usa2026admin'
 
 export function AppProvider({ children }) {
   const [family, setFamily] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('family') || 'null') } catch { return null }
+    try {
+      const f = JSON.parse(localStorage.getItem('family') || 'null')
+      return (f && typeof f === 'object' && f.id) ? f : null
+    } catch { return null }
   })
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('is_admin') === '1')
   const [families, setFamilies] = useState([])

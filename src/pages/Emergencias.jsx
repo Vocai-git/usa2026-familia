@@ -35,17 +35,21 @@ export default function Emergencias() {
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.label}</div>
             {c.notes && <div className="text-sm text-muted" style={{ marginTop: 2 }}>{c.notes}</div>}
-            <a href={`tel:${c.phone.replace(/\s/g, '')}`} className="emergency-phone" style={{ display: 'block', marginTop: 6 }}>
-              📞 {c.phone}
-            </a>
+            {c.phone && (
+              <a href={`tel:${c.phone.replace(/\s/g, '')}`} className="emergency-phone" style={{ display: 'block', marginTop: 6 }}>
+                📞 {c.phone}
+              </a>
+            )}
           </div>
-          <a
-            href={`tel:${c.phone.replace(/\s/g, '')}`}
-            className="btn btn-primary btn-sm"
-            style={{ flexShrink: 0 }}
-          >
-            Llamar
-          </a>
+          {c.phone && (
+            <a
+              href={`tel:${c.phone.replace(/\s/g, '')}`}
+              className="btn btn-primary btn-sm"
+              style={{ flexShrink: 0 }}
+            >
+              Llamar
+            </a>
+          )}
         </div>
       ))}
 

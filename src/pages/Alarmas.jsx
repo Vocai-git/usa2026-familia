@@ -26,7 +26,7 @@ function generateICS(alarm) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${alarm.title.replace(/\s+/g, '_')}.ics`
+  a.download = `${(alarm.title || 'alarma').replace(/\s+/g, '_')}.ics`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -54,8 +54,8 @@ export default function Alarmas() {
       setLoading(false)
     })
 
-    // Request notification permission
-    if (Notification.permission === 'default') {
+    // Request notification permission (puede no existir en Safari iOS sin PWA)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission()
     }
   }, [])

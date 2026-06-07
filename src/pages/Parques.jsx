@@ -16,6 +16,10 @@ const BUCKETS = [
 
 const BUCKET_EMOJI = { fast: '🟢', medium: '🟡', slow: '🟠', long: '🔴' }
 
+function readParkAlarms() {
+  try { return JSON.parse(localStorage.getItem('park_alarms') || '{}') } catch { return {} }
+}
+
 function BucketSection({ bucket, rides, isOpen, onToggle }) {
   const sorted = [...rides].sort((a, b) => a.wait_time - b.wait_time)
 
@@ -177,7 +181,7 @@ export default function Parques() {
       intervalRef.current = setInterval(() => fetchWaitTimes(selectedPark), 30 * 1000)
     }
     // Check if global notif is active for this park
-    const saved = JSON.parse(localStorage.getItem('park_alarms') || '{}')
+    const saved = readParkAlarms()
     setNotifActive(!!saved[`_global_${selectedPark.id}`]?.active)
     return () => clearInterval(intervalRef.current)
   }, [selectedPark, fetchWaitTimes])
@@ -195,7 +199,7 @@ export default function Parques() {
     setNotifLoading(true)
     try {
       const globalKey = `_global_${selectedPark.id}`
-      const saved = JSON.parse(localStorage.getItem('park_alarms') || '{}')
+      const saved = readParkAlarms()
 
       if (notifActive) {
         // Desactivar
@@ -206,6 +210,7 @@ export default function Parques() {
         if (sub) syncAlarms(sub, saved)
       } else {
         // Activar
+        if (typeof Notification === 'undefined') { setNotifActive(false); return }
         const permission = await Notification.requestPermission()
         if (permission !== 'granted') return
 
@@ -344,7 +349,7 @@ export default function Parques() {
                   {notifLoading ? '...' : notifActive ? 'Desactivar' : 'Activar'}
                 </button>
               </div>
-              {Notification.permission === 'denied' && (
+              {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
                 <div className="text-sm text-muted" style={{ marginTop: 8 }}>
                   ⚠️ Las notificaciones están bloqueadas en este dispositivo. Habilitálas en Configuración → Safari → [este sitio].
                 </div>
