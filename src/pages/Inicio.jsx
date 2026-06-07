@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import HoyPanel from '../components/HoyPanel'
 
 const TRIP_START = new Date('2026-06-10T00:00:00')
 const TRIP_END   = new Date('2026-07-14T00:00:00')
@@ -58,6 +59,9 @@ export default function Inicio() {
           </div>
         )}
       </div>
+
+      {/* Hoy / Próximo destino + clima */}
+      <HoyPanel />
 
       {/* Countdown */}
       {cd && (
