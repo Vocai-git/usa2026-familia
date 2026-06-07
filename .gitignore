@@ -5,3 +5,7 @@ dist
 *.log
 .DS_Store
 .vercel
+
+# Scripts temporales con datos sensibles (no commitear)
+_*.mjs
+docs-viaje/
