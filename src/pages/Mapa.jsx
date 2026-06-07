@@ -8,8 +8,11 @@ import { useApp } from '../context/AppContext'
 const CATEGORIES = {
   hotel:       { label: 'Hotel',          emoji: '🏨', color: '#3B82F6' },
   airport:     { label: 'Aeropuerto',     emoji: '✈️', color: '#8B5CF6' },
-  park:        { label: 'Parque',         emoji: '🎢', color: '#22C55E' },
+  park:        { label: 'Parque',         emoji: '🌳', color: '#22C55E' },
   cruise_port: { label: 'Puerto',         emoji: '🚢', color: '#0EA5E9' },
+  sight:       { label: 'Imperdible',     emoji: '⭐', color: '#F43F5E' },
+  viewpoint:   { label: 'Mirador',        emoji: '🌆', color: '#8B5CF6' },
+  museum:      { label: 'Museo',          emoji: '🏛️', color: '#0D9488' },
   shopping:    { label: 'Shopping',       emoji: '🛍️', color: '#EC4899' },
   restaurant:  { label: 'Restaurante',    emoji: '🍽️', color: '#F97316' },
   rental:      { label: 'Rent-a-car',     emoji: '🚗', color: '#F59E0B' },
@@ -203,8 +206,8 @@ export default function Mapa() {
           zoomControl={false}
         >
           <TileLayer
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             subdomains="abcd"
           />
           <FlyTo pin={selected} />

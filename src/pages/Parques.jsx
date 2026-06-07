@@ -369,6 +369,49 @@ export default function Parques() {
             </div>
           )}
 
+          {/* ── ¿Qué hago ahora? ── */}
+          {allOpen.length > 0 && (() => {
+            const picks = [...allOpen].sort((a, b) => a.wait_time - b.wait_time).slice(0, 3)
+            return (
+              <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden', border: 'none' }}>
+                <div style={{ background: 'linear-gradient(135deg, #16A34A 0%, #22C55E 100%)', color: '#fff', padding: '12px 16px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.98rem' }}>🎯 ¿Qué hago ahora?</div>
+                  <div style={{ fontSize: '0.74rem', opacity: 0.9 }}>Las atracciones abiertas con menos cola en este momento</div>
+                </div>
+                <div style={{ background: 'var(--surface)' }}>
+                  {picks.map((ride, i) => {
+                    const info = infoAtraccion(ride.name)
+                    return (
+                      <button
+                        key={ride.id}
+                        onClick={() => setSelectedRide({ ...ride, info })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                          padding: '11px 16px', background: 'none', cursor: 'pointer',
+                          border: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{
+                          width: 24, height: 24, borderRadius: 12, flexShrink: 0,
+                          background: i === 0 ? '#16A34A' : 'var(--border)', color: i === 0 ? '#fff' : 'var(--text-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.8rem',
+                        }}>{i + 1}</span>
+                        <span style={{ fontSize: '1.3rem' }}>{info.emoji}</span>
+                        <span style={{ flex: 1, fontWeight: 600, fontSize: '0.9rem' }}>{ride.name}</span>
+                        <span style={{
+                          background: ride.wait_time <= 15 ? '#dcfce7' : '#fef9c3',
+                          color: ride.wait_time <= 15 ? '#166534' : '#854d0e',
+                          borderRadius: 20, padding: '3px 10px', fontWeight: 800, fontSize: '0.82rem', flexShrink: 0,
+                        }}>{ride.wait_time}′</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Buckets acordeón */}
           {bucketed.map(b => (
             <BucketSection

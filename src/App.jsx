@@ -13,6 +13,8 @@ import Mapa from './pages/Mapa'
 import Listas from './pages/Listas'
 import Alarmas from './pages/Alarmas'
 import Emergencias from './pages/Emergencias'
+import Gastos from './pages/Gastos'
+import NuevaYork from './pages/NuevaYork'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminDashboard from './pages/admin/Dashboard'
 import AdminEventos from './pages/admin/Eventos'
@@ -64,6 +66,8 @@ function AppShell() {
           <Route path="/mundial"     element={<Mundial />} />
           <Route path="/mas"         element={<Mas />}>
             <Route path="mapa"        element={<Mapa />} />
+            <Route path="gastos"      element={<Gastos />} />
+            <Route path="nuevayork"   element={<NuevaYork />} />
             <Route path="listas"      element={<Listas />} />
             <Route path="alarmas"     element={<Alarmas />} />
             <Route path="emergencias" element={<Emergencias />} />

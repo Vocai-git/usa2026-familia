@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 
 const MAS_ITEMS = [
   { to: '/mas/mapa',        icon: '🗺',  label: 'Mapa del viaje',      desc: 'Todos los puntos de interés' },
+  { to: '/mas/gastos',      icon: '💰',  label: 'Gastos',              desc: 'Lo que va gastando tu familia' },
   { to: '/mas/listas',      icon: '✅',  label: 'Checklists',          desc: 'Qué llevar, qué hacer' },
   { to: '/mas/alarmas',     icon: '🔔',  label: 'Alarmas',             desc: 'Check-ins, vuelos, crucero' },
   { to: '/mas/emergencias', icon: '🆘',  label: 'Emergencias',         desc: 'Contactos y teléfonos offline' },
@@ -11,14 +12,18 @@ const MAS_ITEMS = [
 
 export default function Mas() {
   const location = useLocation()
-  const { isAdmin } = useApp()
+  const { isAdmin, stages, family } = useApp()
+  const verNY = isAdmin || stages.some(s => s.id === 'ny' && s.families?.includes(family?.id))
+  const items = verNY
+    ? [MAS_ITEMS[0], { to: '/mas/nuevayork', icon: '🗽', label: 'Nueva York', desc: 'Llegar del aeropuerto y moverse' }, ...MAS_ITEMS.slice(1)]
+    : MAS_ITEMS
   if (location.pathname !== '/mas') return <Outlet />
 
   return (
     <div className="page">
       <h2 className="page-title">Más</h2>
 
-      {MAS_ITEMS.map(({ to, icon, label, desc }) => (
+      {items.map(({ to, icon, label, desc }) => (
         <Link key={to} to={to} style={{ display: 'block', marginBottom: 8 }}>
           <div className="card-pressable" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
