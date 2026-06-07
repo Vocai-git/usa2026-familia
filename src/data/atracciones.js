@@ -71,6 +71,52 @@ const FOTOS = {
   'hippogriff': 'atracciones/hippogriff.jpg',
   'stardust': 'atracciones/stardust.jpg',
   'mario kart': 'atracciones/mario-kart.jpg',
+
+  // ── Matcheo temático: cubre el resto de atracciones con la foto del mundo/IP ──
+  // Super Nintendo World (Epic Universe)
+  'mine-cart': 'atracciones/mario-kart.jpg',
+  'yoshi': 'atracciones/mario-kart.jpg',
+  'bowser': 'atracciones/mario-kart.jpg',
+  'donkey kong': 'atracciones/mario-kart.jpg',
+  'mario': 'atracciones/mario-kart.jpg',
+  // Isle of Berk — Cómo entrenar a tu dragón (Epic Universe)
+  'hiccup': 'atracciones/hippogriff.jpg',
+  'toothless': 'atracciones/hippogriff.jpg',
+  'dragon': 'atracciones/hippogriff.jpg',
+  'wing glider': 'atracciones/hippogriff.jpg',
+  'fyre': 'atracciones/hippogriff.jpg',
+  // Dark Universe — monstruos (Epic Universe)
+  'werewolf': 'atracciones/mummy.jpg',
+  'frankenstein': 'atracciones/mummy.jpg',
+  'monster': 'atracciones/mummy.jpg',
+  // Mundo mágico de Harry Potter
+  'ministry': 'atracciones/gringotts.jpg',
+  'hogwarts': 'atracciones/gringotts.jpg',
+  'ollivanders': 'atracciones/gringotts.jpg',
+  'potter': 'atracciones/forbidden-journey.jpg',
+  // Celestial Park (Epic Universe)
+  'constellation': 'atracciones/stardust.jpg',
+  // Jurassic Park / World (Islands of Adventure)
+  'jurassic': 'atracciones/river-adventure.png',
+  'pteranodon': 'atracciones/river-adventure.png',
+  'raptor': 'atracciones/velocicoaster.jpg',
+  // Seuss Landing (Islands of Adventure)
+  'seuss': 'atracciones/cat-in-the-hat.png',
+  'fish': 'atracciones/cat-in-the-hat.png',
+  'zoo': 'atracciones/cat-in-the-hat.png',
+  'trolley': 'atracciones/cat-in-the-hat.png',
+  // Marvel (Islands of Adventure)
+  'storm force': 'atracciones/hulk.jpg',
+  // Popeye / Toon Lagoon
+  'olive': 'atracciones/popeye.jpg',
+  'me ship': 'atracciones/popeye.jpg',
+  // Nueva York / Springfield (Universal Studios)
+  'jimmy fallon': 'atracciones/rockit.jpg',
+  'race through new york': 'atracciones/rockit.jpg',
+  'kang': 'atracciones/simpsons.jpg',
+  'kodos': 'atracciones/simpsons.jpg',
+  // Trolls (colorido infantil)
+  'troll': 'atracciones/minion.jpg',
 }
 
 export function infoAtraccion(nombre) {

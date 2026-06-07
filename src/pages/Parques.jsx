@@ -23,13 +23,10 @@ function readParkAlarms() {
 
 function RideBanner({ info, name }) {
   const [err, setErr] = useState(false)
-  const [diag, setDiag] = useState('img: ' + (info.img || 'NULL (no matcheó foto)'))
   if (info.img && !err) {
     return (
       <div style={{ position: 'relative', height: 190, background: info.color }}>
-        <img src={info.img} alt={name}
-          onError={() => { setErr(true); setDiag('ERROR al cargar: ' + info.img) }}
-          onLoad={() => setDiag('OK cargó: ' + info.img)}
+        <img src={info.img} alt={name} onError={() => setErr(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0) 55%)' }} />
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 12, color: '#fff' }}>
@@ -44,7 +41,6 @@ function RideBanner({ info, name }) {
       <div style={{ fontSize: '3.4rem', lineHeight: 1 }}>{info.emoji}</div>
       <div style={{ marginTop: 10, fontWeight: 800, fontSize: '1.15rem' }}>{name}</div>
       <div style={{ marginTop: 4, fontSize: '0.8rem', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{info.tipo}</div>
-      <div style={{ marginTop: 10, fontSize: '0.6rem', opacity: 0.85, wordBreak: 'break-all', background: 'rgba(0,0,0,0.35)', padding: '4px 6px', borderRadius: 6 }}>🔧 {diag}</div>
     </div>
   )
 }
