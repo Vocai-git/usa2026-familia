@@ -9,23 +9,16 @@ export default function Listas() {
   const [items, setItems] = useState([])
   const [checked, setChecked] = useState(() => JSON.parse(localStorage.getItem(`checks_${perfil}`) || '{}'))
   const [loading, setLoading] = useState(true)
-  const [diag, setDiag] = useState('cargando…')
 
   useEffect(() => {
     Promise.all([
-      supabase.from('checklists').select('*').order('created_at'),
+      supabase.from('checklists').select('*'),
       supabase.from('checklist_items').select('*').order('sort_order')
-    ]).then(([clRes, itRes]) => {
-      const cl = clRes.data, it = itRes.data
+    ]).then(([{ data: cl }, { data: it }]) => {
       setChecklists(cl || [])
       setItems(it || [])
       setLoading(false)
-      if (clRes.error || itRes.error) {
-        setDiag('ERROR: ' + (clRes.error?.message || itRes.error?.message))
-      } else {
-        setDiag(`OK · ${(cl || []).length} lista(s) · ${(it || []).length} ítem(s) · familia: ${family?.id || 'sin login'}`)
-      }
-    }).catch(e => { setLoading(false); setDiag('EXCEPCIÓN: ' + e.message) })
+    })
   }, [])
 
   // Reset checked when profile changes
@@ -47,9 +40,6 @@ export default function Listas() {
     return (
       <div className="page">
         <h2 className="page-title">✅ Listas</h2>
-        <div style={{ fontSize: '0.7rem', padding: '6px 10px', background: '#fef3c7', borderRadius: 8, marginBottom: 12, color: '#92400e', wordBreak: 'break-word' }}>
-          🔧 diag: {diag}
-        </div>
         <div className="empty-state">
           <div className="icon">📋</div>
           <p>Sin listas creadas todavía.</p>
@@ -62,9 +52,6 @@ export default function Listas() {
   return (
     <div className="page">
       <h2 className="page-title">✅ Listas</h2>
-      <div style={{ fontSize: '0.7rem', padding: '6px 10px', background: '#fef3c7', borderRadius: 8, marginBottom: 12, color: '#92400e', wordBreak: 'break-word' }}>
-        🔧 diag: {diag}
-      </div>
       {filteredLists.map(list => {
         const listItems = items.filter(i => i.checklist_id === list.id)
         const doneCount = listItems.filter(i => checked[i.id]).length
