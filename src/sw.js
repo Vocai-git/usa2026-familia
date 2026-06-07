@@ -1,5 +1,8 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 
+// Activar la versión nueva de inmediato (si no, el móvil se queda con el bundle viejo)
+self.skipWaiting()
+
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
