@@ -26,7 +26,6 @@ function calc() {
 const STAGE_COLORS = {
   orlando: '#2563EB', crucero: '#7C3AED', miami: '#16A34A', ny: '#DC2626'
 }
-const STAGE_EMOJI = { orlando: '🎡', crucero: '🚢', miami: '🌴', ny: '🗽' }
 
 const EVENT_ICON = {
   flight: '✈️', hotel: '🏨', car: '🚗', park: '🎢',
@@ -34,11 +33,13 @@ const EVENT_ICON = {
 }
 
 export default function Inicio() {
-  const { stages, events, filtrarEventos, family } = useApp()
+  const { stages, events, filtrarEventos, family, isAdmin } = useApp()
   const cd = useCountdown()
   const now = new Date()
   const upcoming = filtrarEventos(events).filter(e => new Date(e.date + 'T12:00:00') >= now).slice(0, 3)
-  const activeStage = stages.find(s => {
+  // Destinos visibles según la familia (families null/vacío = todas)
+  const visibleStages = stages.filter(s => isAdmin || !s.families || s.families.length === 0 || s.families.includes(family?.id))
+  const activeStage = visibleStages.find(s => {
     const from = new Date(s.from_date), to = new Date(s.to_date)
     return now >= from && now <= to
   })
@@ -53,7 +54,7 @@ export default function Inicio() {
         <div className="hero-sub">10 jun — 14 jul · {family?.name}</div>
         {activeStage && (
           <div className="hero-badge">
-            {STAGE_EMOJI[activeStage.id]} {activeStage.name}
+            {activeStage.name}
           </div>
         )}
       </div>
@@ -76,16 +77,16 @@ export default function Inicio() {
       {/* Etapas */}
       <div className="section-label">🗺 Etapas del viaje</div>
       <div className="stage-list">
-        {stages.map(s => {
+        {visibleStages.map(s => {
           const from = new Date(s.from_date + 'T12:00:00')
           const to   = new Date(s.to_date   + 'T12:00:00')
           const days = Math.round((to - from) / 86400000)
-          const color = STAGE_COLORS[s.id] || 'var(--accent)'
+          const color = s.color || STAGE_COLORS[s.id] || 'var(--accent)'
           const isActive = activeStage?.id === s.id
           return (
             <div key={s.id} className="stage-item" style={isActive ? { borderColor: color, boxShadow: `0 0 0 2px ${color}22` } : {}}>
               <div className="stage-dot" style={{ background: color }} />
-              <div className="stage-name">{STAGE_EMOJI[s.id]} {s.name}</div>
+              <div className="stage-name">{s.name}</div>
               <div>
                 <div className="stage-dates">
                   {from.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — {to.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
