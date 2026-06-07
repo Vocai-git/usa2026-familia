@@ -76,6 +76,7 @@ app.get('/api/park/:id/times', async (req, res) => {
 
 // ─── Background polling: cada 30s ────────────────────────────────────────────
 const PARK_IDS = [334, 65, 64]
+const PARK_NAMES = { 334: 'Epic Universe', 65: 'Universal Studios', 64: 'Islands of Adventure' }
 const parkCache = {}
 const firedCache = {} // endpoint_rideKey → timestamp última notificación
 
@@ -124,17 +125,42 @@ async function pollAndNotify() {
 
     for (const [key, alarm] of Object.entries(sub.alarms || {})) {
       if (!alarm.active) continue
+
+      // ── Alarma global: avisa cualquier atracción bajo el umbral ──
+      if (alarm.type === 'global') {
+        const rides = parkCache[alarm.parkId]
+        if (!rides) continue
+        for (const [rideId, ride] of Object.entries(rides)) {
+          if (!ride.open || ride.wait == null || ride.wait >= alarm.threshold) continue
+          const firedKey = `${sub.endpoint}_g_${alarm.parkId}_${rideId}`
+          const lastFired = firedCache[firedKey] || 0
+          if (Date.now() - lastFired < 10 * 60 * 1000) continue
+          firedCache[firedKey] = Date.now()
+          try {
+            await webpush.sendNotification(pushSub, JSON.stringify({
+              title: `🟢 ${ride.wait} min — ${ride.name}`,
+              body: `¡Fila corta en ${PARK_NAMES[alarm.parkId] || 'el parque'}!`,
+              tag: `g-${alarm.parkId}-${rideId}`
+            }))
+          } catch (e) {
+            if (e.statusCode === 410 || e.statusCode === 404) {
+              await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+            }
+          }
+        }
+        continue
+      }
+
+      // ── Alarma por atracción individual ──
       const rides = parkCache[alarm.parkId]
       if (!rides) continue
       const ride = rides[alarm.rideId]
       if (!ride?.open || ride.wait == null) continue
       if (ride.wait > alarm.threshold) continue
 
-      // Anti-spam: no notificar más de 1 vez cada 10 min por atracción
       const firedKey = `${sub.endpoint}_${key}`
       const lastFired = firedCache[firedKey] || 0
       if (Date.now() - lastFired < 10 * 60 * 1000) continue
-
       firedCache[firedKey] = Date.now()
 
       try {
@@ -144,7 +170,6 @@ async function pollAndNotify() {
           tag: `ride-${alarm.rideId}`
         }))
       } catch (e) {
-        // Suscripción inválida/expirada — eliminar
         if (e.statusCode === 410 || e.statusCode === 404) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
         }
