@@ -1,362 +1,365 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const PARKS = [
-  { id: 334, name: 'Epic Universe',         emoji: '🌌', company: 'Universal' },
-  { id: 65,  name: 'Universal Studios FL',  emoji: '🎬', company: 'Universal' },
-  { id: 64,  name: 'Islands of Adventure',  emoji: '🏝', company: 'Universal' },
+  { id: 334, name: 'Epic Universe',         emoji: '🌌' },
+  { id: 65,  name: 'Universal Studios',     emoji: '🎬' },
+  { id: 64,  name: 'Islands of Adventure',  emoji: '🏝' },
+  { id: 'volcano', name: 'Volcano Bay',     emoji: '🌋' },
 ]
 
-// Volcano Bay usa Virtual Line de Universal, no tiene API de tiempos
-const VOLCANO_BAY_URL = 'https://www.universalorlando.com/web/en/us/plan-your-visit/volcano-bay/virtual-line'
-
-const APP_LINKS = {
-  Universal: { web: 'https://www.universalorlando.com' },
+function waitColor(mins) {
+  if (mins <= 15) return '#22c55e'
+  if (mins <= 30) return '#f59e0b'
+  if (mins <= 60) return '#f97316'
+  return '#ef4444'
 }
 
-function waitClass(mins) {
-  if (mins === null || mins === undefined) return 'wait-closed'
-  if (mins <= 20) return 'wait-green'
-  if (mins <= 45) return 'wait-yellow'
-  return 'wait-red'
-}
+function LandSection({ land, isOpen, onToggle, alarms, onAlarm }) {
+  const openRides = (land.rides || []).filter(r => r.is_open && r.wait_time !== null)
+  if (openRides.length === 0) return null
 
-function Summary({ rides }) {
-  const open = rides.filter(r => r.is_open && r.wait_time !== null)
-  const green = open.filter(r => r.wait_time <= 20).length
-  const yellow = open.filter(r => r.wait_time > 20 && r.wait_time <= 45).length
-  const red = open.filter(r => r.wait_time > 45).length
+  const minWait = Math.min(...openRides.map(r => r.wait_time))
+  const sorted = [...openRides].sort((a, b) => a.wait_time - b.wait_time)
+
   return (
-    <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-      <span className="badge badge-green">✅ {green} &lt;20min</span>
-      <span className="badge badge-yellow">⚡ {yellow} 20-45min</span>
-      <span className="badge badge-red">🔴 {red} +45min</span>
-      <span className="badge" style={{ background: 'var(--surface2)' }}>⛔ {rides.length - open.length} cerradas</span>
+    <div style={{ marginBottom: 4 }}>
+      <button
+        onClick={onToggle}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: isOpen ? '12px 12px 0 0' : 12,
+          cursor: 'pointer',
+          textAlign: 'left',
+          gap: 8,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {land.name}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+            {openRides.length} abiertas · desde {minWait} min
+          </div>
+        </div>
+        <span style={{ fontSize: '0.75rem', flexShrink: 0, color: 'var(--text-muted)' }}>
+          {isOpen ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div style={{
+          border: '1px solid var(--border)',
+          borderTop: 'none',
+          borderRadius: '0 0 12px 12px',
+          overflow: 'hidden',
+        }}>
+          {sorted.map((ride, i) => {
+            const hasAlarm = !!alarms[ride.id]
+            return (
+              <div
+                key={ride.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '10px 14px',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  gap: 10,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div style={{ flex: 1, fontSize: '0.84rem', lineHeight: 1.3, minWidth: 0 }}>{ride.name}</div>
+                <div style={{
+                  background: waitColor(ride.wait_time),
+                  color: '#fff',
+                  borderRadius: 20,
+                  padding: '3px 10px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {ride.wait_time} min
+                </div>
+                <button
+                  onClick={() => onAlarm(ride)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', padding: '0 2px', flexShrink: 0 }}
+                >
+                  {hasAlarm ? '🔔' : '🔕'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Push subscription helpers ────────────────────────────────────────────────
-async function getPushSubscription() {
-  const sw = await navigator.serviceWorker.ready
-  return sw.pushManager.getSubscription()
-}
-
-async function subscribeToPush() {
-  try {
-    const r = await fetch('/api/push/vapid-key')
-    const { publicKey } = await r.json()
-    const sw = await navigator.serviceWorker.ready
-    const sub = await sw.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: publicKey
-    })
-    return sub
-  } catch { return null }
-}
-
-async function syncAlarmsToServer(alarms) {
-  const sub = await getPushSubscription()
-  if (!sub) return
-  fetch('/api/push/sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ endpoint: sub.endpoint, alarms })
-  }).catch(() => {})
-}
-
 export default function Parques() {
   const [selectedPark, setSelectedPark] = useState(PARKS[0])
-  const [rides, setRides] = useState([])
+  const [showPicker, setShowPicker] = useState(false)
+  const [lands, setLands] = useState([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
-  const [sortBy, setSortBy] = useState('wait')
-  const [hideClosed, setHideClosed] = useState(true)
+  const [openLand, setOpenLand] = useState(null)
   const [alarms, setAlarms] = useState(() => JSON.parse(localStorage.getItem('park_alarms') || '{}'))
   const [addAlarm, setAddAlarm] = useState(null)
   const [alarmThreshold, setAlarmThreshold] = useState(20)
-  const [pushEnabled, setPushEnabled] = useState(false)
   const intervalRef = useRef(null)
 
-  // Detectar si ya hay suscripción push activa
-  useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-    getPushSubscription().then(sub => setPushEnabled(!!sub))
-  }, [])
-
   const fetchWaitTimes = useCallback(async (park) => {
+    if (park.id === 'volcano') return
     setLoading(true)
-    setError(null)
+    setError(false)
     try {
       const res = await fetch(`/api/park/${park.id}/times`)
-      if (!res.ok) throw new Error('API no disponible')
+      if (!res.ok) throw new Error()
       const data = await res.json()
-      const allRides = []
-      ;(data.lands || []).forEach(land => {
-        ;(land.rides || []).forEach(ride => allRides.push(ride))
-      })
-      setRides(allRides)
+      setLands(data.lands || [])
       setLastUpdate(new Date())
-    } catch (e) {
-      setError('No se pudo cargar. Mostrando datos cacheados si hay.')
+    } catch {
+      setError(true)
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchWaitTimes(selectedPark)
-    intervalRef.current = setInterval(() => fetchWaitTimes(selectedPark), 30 * 1000)
+    setLands([])
+    setOpenLand(null)
+    setError(false)
+    clearInterval(intervalRef.current)
+    if (selectedPark.id !== 'volcano') {
+      fetchWaitTimes(selectedPark)
+      intervalRef.current = setInterval(() => fetchWaitTimes(selectedPark), 30 * 1000)
+    }
     return () => clearInterval(intervalRef.current)
   }, [selectedPark, fetchWaitTimes])
 
-  // Check alarms on every update
+  // Auto-open first land with rides when data loads
   useEffect(() => {
-    const savedAlarms = JSON.parse(localStorage.getItem('park_alarms') || '{}')
-    rides.forEach(ride => {
-      const alarm = savedAlarms[`${selectedPark.id}_${ride.id}`]
-      if (!alarm || !alarm.active) return
-      if (ride.is_open && ride.wait_time !== null && ride.wait_time <= alarm.threshold) {
+    if (!lands.length || openLand) return
+    const first = lands.find(l => (l.rides || []).some(r => r.is_open && r.wait_time !== null))
+    if (first) setOpenLand(first.name)
+  }, [lands])
+
+  // Check local alarms on data update
+  useEffect(() => {
+    if (!lands.length) return
+    const current = JSON.parse(localStorage.getItem('park_alarms') || '{}')
+    const allRides = lands.flatMap(l => l.rides || [])
+    let changed = false
+    allRides.forEach(ride => {
+      const alarm = current[ride.id]
+      if (!alarm?.active) return
+      if (ride.is_open && ride.wait_time !== null && ride.wait_time <= alarm.threshold && !alarm.fired) {
         if (Notification.permission === 'granted') {
-          new Notification(`🎢 ${ride.name}`, {
-            body: `¡Solo ${ride.wait_time} minutos de espera!`,
-            icon: '/icons/icon-192.png'
-          })
+          new Notification(`🎢 ${ride.name}`, { body: `¡Solo ${ride.wait_time} min!`, icon: '/icons/icon-192.png' })
         }
-        // Rearm: deactivate, reactivate when it goes above threshold + 5
-        savedAlarms[`${selectedPark.id}_${ride.id}`].fired = ride.wait_time
-      } else if (alarm.fired && ride.wait_time > alarm.threshold + 5) {
-        savedAlarms[`${selectedPark.id}_${ride.id}`].fired = null
+        current[ride.id] = { ...alarm, fired: true }
+        changed = true
+      } else if (alarm.fired && ride.wait_time !== null && ride.wait_time > alarm.threshold + 5) {
+        current[ride.id] = { ...alarm, fired: false }
+        changed = true
       }
     })
-    localStorage.setItem('park_alarms', JSON.stringify(savedAlarms))
-    setAlarms(savedAlarms)
-  }, [rides, selectedPark])
+    if (changed) {
+      localStorage.setItem('park_alarms', JSON.stringify(current))
+      setAlarms(current)
+    }
+  }, [lands])
 
-  const saveAlarm = async (ride) => {
-    const key = `${selectedPark.id}_${ride.id}`
-    const newAlarms = { ...alarms, [key]: { rideId: ride.id, rideName: ride.name, parkId: selectedPark.id, threshold: alarmThreshold, active: true, fired: null } }
+  const saveAlarm = (ride) => {
+    const newAlarms = {
+      ...alarms,
+      [ride.id]: { rideId: ride.id, rideName: ride.name, threshold: alarmThreshold, active: true, fired: false }
+    }
     localStorage.setItem('park_alarms', JSON.stringify(newAlarms))
     setAlarms(newAlarms)
     setAddAlarm(null)
-
-    // Activar push si no está activo
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      const permission = await Notification.requestPermission()
-      if (permission === 'granted') {
-        let sub = await getPushSubscription()
-        if (!sub) {
-          sub = await subscribeToPush()
-          if (sub) {
-            await fetch('/api/push/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ subscription: sub, alarms: newAlarms })
-            })
-            setPushEnabled(true)
-          }
-        } else {
-          syncAlarmsToServer(newAlarms)
-        }
-      }
-    }
+    if (Notification.permission === 'default') Notification.requestPermission()
   }
 
   const removeAlarm = (ride) => {
-    const key = `${selectedPark.id}_${ride.id}`
-    const newAlarms = { ...alarms }
-    delete newAlarms[key]
-    localStorage.setItem('park_alarms', JSON.stringify(newAlarms))
-    setAlarms(newAlarms)
-    syncAlarmsToServer(newAlarms)
+    const updated = { ...alarms }
+    delete updated[ride.id]
+    localStorage.setItem('park_alarms', JSON.stringify(updated))
+    setAlarms(updated)
   }
 
-  const enablePush = async () => {
-    const permission = await Notification.requestPermission()
-    if (permission !== 'granted') return
-    const sub = await subscribeToPush()
-    if (sub) {
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub, alarms })
-      })
-      setPushEnabled(true)
-    }
-  }
-
-  let displayRides = [...rides]
-  if (hideClosed) displayRides = displayRides.filter(r => r.is_open)
-  if (sortBy === 'wait') displayRides.sort((a, b) => (a.wait_time ?? 999) - (b.wait_time ?? 999))
-  else displayRides.sort((a, b) => a.name.localeCompare(b.name))
-
+  const allOpenRides = lands.flatMap(l => (l.rides || []).filter(r => r.is_open && r.wait_time !== null))
+  const s15 = allOpenRides.filter(r => r.wait_time <= 15).length
+  const s30 = allOpenRides.filter(r => r.wait_time > 15 && r.wait_time <= 30).length
+  const sMore = allOpenRides.filter(r => r.wait_time > 30).length
   const alarmCount = Object.values(alarms).filter(a => a.active).length
 
   return (
-    <div className="page">
-      <h2 className="page-title">🎢 Parques en vivo</h2>
+    <div className="page" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
 
-      {/* Push notifications */}
-      {!pushEnabled && Notification.permission !== 'denied' && (
-        <div className="card" style={{ borderLeft: '4px solid var(--yellow)', marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>🔔 Notificaciones con la app cerrada</div>
-          <div className="text-sm text-muted" style={{ marginBottom: 10 }}>Avisamos cuando baje la fila aunque tengas el teléfono guardado.</div>
-          <button className="btn btn-primary btn-sm" onClick={enablePush}>Activar notificaciones</button>
-        </div>
-      )}
-      {pushEnabled && (
-        <div className="card" style={{ borderLeft: '4px solid var(--green)', marginBottom: 16, padding: '10px 16px' }}>
-          <div className="text-sm" style={{ fontWeight: 700 }}>✅ Notificaciones activas — funcionan aunque cierres la app</div>
-        </div>
-      )}
-
-      {/* Juegos en seguimiento */}
-      {alarmCount > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid var(--accent)', marginBottom: 16, padding: '12px 16px' }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>🔔 En seguimiento ({alarmCount})</div>
-          {Object.entries(alarms).filter(([, a]) => a.active).map(([key, a]) => {
-            const parkName = PARKS.find(p => p.id === a.parkId)?.name || ''
-            const liveRide = rides.find(r => r.id === a.rideId)
-            return (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: '0.82rem', flex: 1 }}>
-                  <strong>{a.rideName}</strong>
-                  <span className="text-muted"> · {parkName}</span>
-                </span>
-                {liveRide && (
-                  <span className={`wait-time ${liveRide.is_open ? waitClass(liveRide.wait_time) : 'wait-closed'}`} style={{ fontSize: '0.8rem', padding: '2px 8px' }}>
-                    {liveRide.is_open ? (liveRide.wait_time != null ? `${liveRide.wait_time}'` : '—') : 'Cerrada'}
-                  </span>
-                )}
-                <span className="text-muted text-sm">aviso &lt;{a.threshold}min</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Volcano Bay — Virtual Line */}
-      <a
-        href={VOLCANO_BAY_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="card"
-        style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, textDecoration: 'none', borderLeft: '4px solid #0EA5E9' }}
+      {/* ── Selector de parque ── */}
+      <button
+        onClick={() => setShowPicker(true)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '14px 16px',
+          background: 'var(--surface)',
+          border: '2px solid var(--accent)',
+          borderRadius: 14,
+          cursor: 'pointer',
+          marginBottom: 16,
+          boxSizing: 'border-box',
+        }}
       >
-        <span style={{ fontSize: '1.6rem' }}>🌋</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>Volcano Bay</div>
-          <div className="text-sm text-muted">Usa Virtual Line — tocá para abrir el sistema de colas de Universal</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: '1.5rem' }}>{selectedPark.emoji}</span>
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedPark.name}</div>
+            {lastUpdate && selectedPark.id !== 'volcano' && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                Actualizado {lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+          </div>
         </div>
-        <span style={{ color: '#0EA5E9', fontWeight: 700 }}>→</span>
-      </a>
+        <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.85rem' }}>Cambiar ▾</span>
+      </button>
 
-      {/* Selector de parque */}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 16, scrollbarWidth: 'none' }}>
-        {PARKS.map(park => (
-          <button
-            key={park.id}
-            onClick={() => setSelectedPark(park)}
-            className={`profile-pill${selectedPark.id === park.id ? ' active' : ''}`}
-            style={{ flexShrink: 0 }}
+      {/* ── Volcano Bay ── */}
+      {selectedPark.id === 'volcano' && (
+        <div className="card" style={{ textAlign: 'center', padding: '32px 20px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 12 }}>🌋</div>
+          <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 8 }}>Volcano Bay</div>
+          <div className="text-muted text-sm" style={{ marginBottom: 20 }}>
+            Usa el sistema Virtual Line de Universal. Las colas se manejan desde la app oficial.
+          </div>
+          <a
+            href="https://www.universalorlando.com/web/en/us/plan-your-visit/volcano-bay/virtual-line"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary btn-block"
           >
-            {park.emoji} {park.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button
-          className={`btn btn-sm ${sortBy === 'wait' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setSortBy('wait')}
-        >⏱ Por espera</button>
-        <button
-          className={`btn btn-sm ${sortBy === 'name' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setSortBy('name')}
-        >🔤 Por nombre</button>
-        <button
-          className={`btn btn-sm ${hideClosed ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setHideClosed(h => !h)}
-        >{hideClosed ? '🙈 Ocultando cerradas' : '👁 Mostrando cerradas'}</button>
-        {alarmCount > 0 && (
-          <span className="badge badge-accent">🔔 {alarmCount} alarmas activas</span>
-        )}
-      </div>
-
-      {/* Update time + deep link */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span className="text-sm text-muted">
-          {lastUpdate ? `Actualizado: ${lastUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Cargando...'}
-        </span>
-        <a
-          href={APP_LINKS[selectedPark.company]?.web}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-sm btn-secondary"
-        >
-          Abrir app oficial 📱
-        </a>
-      </div>
-
-      {loading && rides.length === 0 && (
-        <div className="loading"><div className="spinner" /><span>Cargando tiempos...</span></div>
-      )}
-
-      {error && (
-        <div className="card" style={{ borderLeft: '4px solid var(--red)', marginBottom: 12 }}>
-          <div className="text-sm">⚠️ {error}</div>
-          <button className="btn btn-sm btn-secondary" style={{ marginTop: 8 }} onClick={() => fetchWaitTimes(selectedPark)}>
-            Reintentar
-          </button>
+            Abrir Virtual Line →
+          </a>
         </div>
       )}
 
-      {rides.length > 0 && <Summary rides={rides} />}
+      {/* ── Vista parque real ── */}
+      {selectedPark.id !== 'volcano' && (
+        <>
+          {/* Resumen */}
+          {allOpenRides.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+              {s15 > 0 && <span className="badge badge-green">🟢 {s15} ≤15 min</span>}
+              {s30 > 0 && <span className="badge badge-yellow">🟡 {s30} 15-30 min</span>}
+              {sMore > 0 && <span className="badge badge-red">🔴 {sMore} +30 min</span>}
+              {alarmCount > 0 && <span className="badge badge-accent">🔔 {alarmCount} alarmas</span>}
+            </div>
+          )}
 
-      <div className="card" style={{ padding: '0 16px' }}>
-        {displayRides.map(ride => {
-          const alarmKey = `${selectedPark.id}_${ride.id}`
-          const hasAlarm = !!alarms[alarmKey]
-          return (
-            <div key={ride.id} className="wait-bar">
-              <div style={{ flex: 1 }}>
-                <div className="wait-name">{ride.name}</div>
-                {hasAlarm && (
-                  <div className="text-sm" style={{ color: 'var(--accent)' }}>
-                    🔔 Aviso a &lt;{alarms[alarmKey].threshold} min
-                  </div>
-                )}
-              </div>
-              <div className={`wait-time ${ride.is_open ? waitClass(ride.wait_time) : 'wait-closed'}`}>
-                {ride.is_open
-                  ? (ride.wait_time !== null ? `${ride.wait_time}'` : '—')
-                  : 'Cerrada'}
-              </div>
-              <button
-                style={{ marginLeft: 8, fontSize: '1.2rem', lineHeight: 1 }}
-                onClick={() => hasAlarm ? removeAlarm(ride) : setAddAlarm(ride)}
-                title={hasAlarm ? 'Quitar alarma' : 'Agregar alarma'}
-              >
-                {hasAlarm ? '🔔' : '🔕'}
+          {loading && lands.length === 0 && (
+            <div className="loading"><div className="spinner" /><span>Cargando tiempos...</span></div>
+          )}
+
+          {error && (
+            <div className="card" style={{ borderLeft: '4px solid var(--red)', marginBottom: 12 }}>
+              <div className="text-sm">⚠️ No se pudo cargar</div>
+              <button className="btn btn-sm btn-secondary" style={{ marginTop: 8 }} onClick={() => fetchWaitTimes(selectedPark)}>
+                Reintentar
               </button>
             </div>
-          )
-        })}
-      </div>
+          )}
 
-      <div className="text-sm text-muted" style={{ textAlign: 'center', marginTop: 12 }}>
-        Powered by <a href="https://queue-times.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>Queue-Times.com</a>
-      </div>
+          {/* Zonas en acordeón */}
+          {lands.map(land => (
+            <LandSection
+              key={land.id ?? land.name}
+              land={land}
+              isOpen={openLand === land.name}
+              onToggle={() => setOpenLand(openLand === land.name ? null : land.name)}
+              alarms={alarms}
+              onAlarm={ride => alarms[ride.id] ? removeAlarm(ride) : setAddAlarm(ride)}
+            />
+          ))}
 
-      {/* Modal alarma */}
+          {lands.length > 0 && allOpenRides.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">🎢</div>
+              <div className="empty-title">Sin atracciones abiertas</div>
+              <div className="empty-text">El parque puede estar cerrado o la API no tiene datos en este momento.</div>
+            </div>
+          )}
+
+          <div className="text-sm text-muted" style={{ textAlign: 'center', marginTop: 14 }}>
+            Datos de{' '}
+            <a href="https://queue-times.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
+              Queue-Times.com
+            </a>{' '}
+            · Actualiza cada 30s
+          </div>
+        </>
+      )}
+
+      {/* ── Modal picker de parque ── */}
+      {showPicker && (
+        <div className="modal-overlay" onClick={() => setShowPicker(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-title">Elegir parque</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {PARKS.map(park => (
+                <button
+                  key={park.id}
+                  onClick={() => { setSelectedPark(park); setShowPicker(false) }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '14px 16px',
+                    borderRadius: 12,
+                    border: `2px solid ${selectedPark.id === park.id ? 'var(--accent)' : 'var(--border)'}`,
+                    background: selectedPark.id === park.id ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--surface)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                >
+                  <span style={{ fontSize: '1.6rem' }}>{park.emoji}</span>
+                  <span style={{ fontWeight: selectedPark.id === park.id ? 700 : 400, fontSize: '0.95rem' }}>
+                    {park.name}
+                  </span>
+                  {selectedPark.id === park.id && (
+                    <span style={{ marginLeft: 'auto', color: 'var(--accent)', fontWeight: 700 }}>✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button className="btn btn-secondary btn-block" style={{ marginTop: 16 }} onClick={() => setShowPicker(false)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal alarma ── */}
       {addAlarm && (
         <div className="modal-overlay" onClick={() => setAddAlarm(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-handle" />
-            <div className="modal-title">🔔 Alarma para {addAlarm.name}</div>
+            <div className="modal-title">🔔 {addAlarm.name}</div>
             <p className="text-sm text-muted" style={{ marginBottom: 16 }}>
-              Te avisamos cuando el tiempo baje de:
+              Avisamos cuando la fila baje de:
             </p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               {[10, 20, 30, 45].map(t => (
