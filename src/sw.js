@@ -4,7 +4,15 @@ cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
 // ─── Documentos offline: cachear /api/doc (cache-first) ──────────────────────
-const DOC_CACHE = 'usa2026-docs-v1'
+const DOC_CACHE = 'usa2026-docs-v2'
+// Borrar cachés de documentos viejas (content-type incorrecto)
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k.startsWith('usa2026-docs-') && k !== DOC_CACHE).map(k => caches.delete(k))
+    )).then(() => self.clients.claim())
+  )
+})
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url)
   if (event.request.method !== 'GET' || url.pathname !== '/api/doc') return
