@@ -145,7 +145,7 @@ setInterval(pollAndNotify, 30 * 1000)
 
 // ─── Servir app estática ──────────────────────────────────────────────────────
 app.use(express.static(dist))
-app.get('*', (_, res) => res.sendFile(join(dist, 'index.html')))
+app.get('/{*path}', (_, res) => res.sendFile(join(dist, 'index.html')))
 
 const port = process.env.PORT || 3000
 app.listen(port, () => console.log(`USA 2026 running on port ${port}`))
