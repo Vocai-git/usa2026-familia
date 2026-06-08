@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import HoyPanel from '../components/HoyPanel'
 
-const TRIP_START = new Date('2026-07-10T10:00:00+02:00') // 10 jul 10:00 Madrid (CEST)
+const TRIP_START = new Date('2026-06-10T10:00:00+02:00') // 10 jun 10:00 Madrid (CEST)
 const TRIP_END   = new Date('2026-07-14T00:00:00')
 
 function useCountdown() {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 
-const TRIP_START = new Date('2026-07-10T10:00:00+02:00') // 10 jul 10:00 Madrid (CEST)
+const TRIP_START = new Date('2026-06-10T10:00:00+02:00') // 10 jun 10:00 Madrid (CEST)
 const TRIP_END   = new Date('2026-07-14T23:59:59')
 const DAY = 86400000
 const TOTAL_DIAS = 34
