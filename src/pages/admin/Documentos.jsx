@@ -20,7 +20,7 @@ export default function Documentos() {
   const [useAI, setUseAI] = useState(true)
   const [aiStatus, setAiStatus] = useState(null)
 
-  const fetch = async () => {
+  const loadDocs = async () => {
     setLoading(true)
     let q = supabase.from('documents').select('*').order('created_at', { ascending: false })
     if (!isSuper) q = q.or(`family_id.eq.${familyId},family_id.is.null`)
@@ -29,7 +29,7 @@ export default function Documentos() {
     setLoading(false)
   }
 
-  useEffect(() => { fetch() }, [isSuper, familyId])
+  useEffect(() => { loadDocs() }, [isSuper, familyId])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -52,7 +52,7 @@ export default function Documentos() {
       } catch { showToast('⚠️ Error de conexión con la IA') }
       setUploading(false); setAiStatus(null); setModal(false); setFile(null)
       setForm({ name:'', type:'passport', owner_id:'', notes:'', family_id:'' })
-      fetch()
+      loadDocs()
       return
     }
     // Modo manual
@@ -71,7 +71,7 @@ export default function Documentos() {
     setModal(false)
     setFile(null)
     setForm({ name:'', type:'passport', owner_id:'', notes:'', family_id:'' })
-    fetch()
+    loadDocs()
     showToast('✅ Documento guardado')
   }
 
@@ -79,7 +79,7 @@ export default function Documentos() {
     if (!confirm('¿Eliminar este documento?')) return
     if (path) await supabase.storage.from('documents').remove([path])
     await supabase.from('documents').delete().eq('id', id)
-    fetch(); showToast('🗑️ Eliminado')
+    loadDocs(); showToast('🗑️ Eliminado')
   }
 
   const view = (doc, qr = false) => {
