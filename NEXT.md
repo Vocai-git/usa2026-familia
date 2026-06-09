@@ -1,30 +1,23 @@
 ## Fecha
-2026-06-07
+2026-06-08
 
 ## Que hicimos hoy
-- Saqué el vuelo NY→Miami de Castro/papa (era family_id=null, lo até a moledo + dupliqué para hermanos)
-- Arreglé el checklist que no cargaba en móvil — `order('created_at')` sobre columna inexistente (src/pages/Listas.jsx)
-- 100% de fotos de atracciones con matcheo temático por palabra clave (src/data/atracciones.js)
-- Agregué IA al panel de escritorio (src/pages/admin/Documentos.jsx + server.js /api/parse-document)
-- Vista Hoy en inicio (src/components/HoyPanel.jsx); ubicación en vivo en el mapa (src/pages/Mapa.jsx + tabla live_locations)
-- Gastos por familia (src/pages/Gastos.jsx + tabla expenses); guía Nueva York solo Moledo (src/pages/NuevaYork.jsx)
-- Mapa de cada parque: atracciones coloreadas por espera + tu GPS (src/components/ParkMap.jsx + src/data/parkMaps.js)
-- Arreglé notificaciones push de parques — clave VAPID como Uint8Array para Safari (src/pages/Parques.jsx)
+- Arreglé el panel de escritorio que no leía documentos con IA: una función local `fetch` pisaba al `fetch` del navegador → la llamada a /api/parse-document nunca salía (src/pages/admin/Documentos.jsx, renombrada a `loadDocs`)
+- Corregí la cuenta regresiva del dashboard: salida real **10 jun 10:00 Madrid** (src/pages/Inicio.jsx:6 y src/components/HoyPanel.jsx:4)
 
 ## Que quedo terminado
-- Todo lo de arriba commiteado (12 commits, último 56d7e95) y deployado en Railway
-- Cobertura mapas: USF 18/18, IOA 25/25, Epic 19/19 (Epic aproximado, no está en OSM)
-- Checklist visible en móvil; fotos de atracciones al 100%; push de parques funcionando
+- 0fd4594 — fix admin IA (fetch shadowing)
+- 12452af — cuenta regresiva al 10 jun 10:00 Madrid (revierte el b7b00f7 que la había puesto en julio por error)
+- Todo deployado y verificado en Railway (último bundle index-BKZFsHbC.js)
 
 ## Que quedo a medias
-- Nada pendiente de la sesión. Falta SOLO pushear a origin (12 commits adelante de origin/main)
+- Nada de código. SOLO falta pushear a origin (3 commits adelante)
+- Pendiente menor: hay un archivo huérfano en storage (el doc que Agus subió antes del fix, quedó sin fila en la base). Limpiar si molesta.
 
 ## Proximo paso concreto al retomar
-- Esperar feedback de Agus tras probar el mapa de parques y el GPS
+- ¡El viaje arranca el 10 jun! Verificar que la cuenta marque bien y que el panel de escritorio lea documentos con IA al subir uno real
 
 ## Notas/decisiones importantes
-- Seguridad NO es prioridad (app efímera ~35 días, familias de confianza) — no insistir
-- Railway: `railway up --detach` deploya; `git push` NO deploya. URL prod: https://usa2026-app-production.up.railway.app
-- Supabase DDL vía Management API (el CLI tiene colisión de versiones de migración)
+- La salida es 10 jun 2026, NO julio. El itinerario en la base (Orlando 10-28 jun, crucero, Miami, NY, regreso 14 jul) está correcto — NO tocar, Agus lo confirmó
+- Railway: `railway up --detach` deploya; `git push` NO. URL prod: https://usa2026-app-production.up.railway.app
 - iOS push solo funciona con la PWA instalada
-- Familias: moledo, hermanos (Lewin), amigos (Castro), papa (Luis y Andrea)
